@@ -1,4 +1,6 @@
+import 'package:diario_de_entrenamiento_demo/src/features/instructor/screens/instructor_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Para ValueListenableBuilder
 // Asegúrate que las rutas de importación coincidan con tu estructura
 import '../../video_data/models/video_entry.dart';
@@ -50,6 +52,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
         builder: (context) => AnalyzerScreen(videoPath: videoPath),
       ),
     );
+  }
+
+  void _navigateToInstructor() {
+     Navigator.push(
+       context,
+       MaterialPageRoute(builder: (context) => const InstructorScreen()),
+     );
   }
 
   @override
@@ -130,12 +139,40 @@ class _GalleryScreenState extends State<GalleryScreen> {
           );
         },
       ),
-      // Botón flotante para añadir videos
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addVideo,
-        tooltip: 'Añadir Video',
-        child: const Icon(Icons.add_to_photos), // Ícono diferente
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), // Más redondo
+      floatingActionButton: SpeedDial(
+         icon: Icons.menu, // Icono principal del FAB (menú)
+         activeIcon: Icons.close, // Icono cuando está desplegado
+         buttonSize: const Size(56.0, 56.0), // Tamaño estándar
+         visible: true,
+         curve: Curves.bounceIn,
+         overlayColor: Colors.black,
+         overlayOpacity: 0.5,
+         tooltip: 'Opciones',
+         heroTag: 'speed-dial-hero-tag', // Necesario si hay múltiples FABs/SpeedDials
+         backgroundColor: Theme.of(context).colorScheme.primary,
+         foregroundColor: Theme.of(context).colorScheme.onPrimary,
+         elevation: 8.0,
+         shape: const CircleBorder(),
+         children: [
+            // Botón para ir al Instructor
+            SpeedDialChild(
+              child: const Icon(Icons.lightbulb_outline),
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+              label: 'Instructor',
+              labelStyle: const TextStyle(fontSize: 16.0),
+              onTap: _navigateToInstructor, // Llama a la función de navegación
+            ),
+            // Botón para Añadir Video
+            SpeedDialChild(
+              child: const Icon(Icons.video_call_outlined),
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              label: 'Añadir Video',
+              labelStyle: const TextStyle(fontSize: 16.0),
+              onTap: _addVideo, // Llama a la función de añadir video
+            ),
+         ],
       ),
     );
   }
