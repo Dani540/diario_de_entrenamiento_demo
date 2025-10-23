@@ -1,15 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:hive_flutter/hive_flutter.dart'; // Solo para Hive.box()
+import 'package:hive_flutter/hive_flutter.dart';
 
 // Asegúrate que las rutas coincidan con tu estructura
+import '../../video_data/models/trick_list.dart'; // Importa la lista de movimientos
 import '../../video_data/models/video_entry.dart';
-// Quitamos import de DatabaseService si accedemos directo a Hive.box
-// import '../../video_data/services/database_service.dart';
 
 class AnalyzerScreen extends StatefulWidget {
-  final String videoPath; // Recibe la ruta del video
+  final String videoPath;
 
   const AnalyzerScreen({super.key, required this.videoPath});
 
@@ -20,95 +19,106 @@ class AnalyzerScreen extends StatefulWidget {
 class _AnalyzerScreenState extends State<AnalyzerScreen> {
   late VideoPlayerController _controller;
   late Future<void> _initializeVideoPlayerFuture;
-  final TextEditingController _tagController = TextEditingController();
-  VideoEntry? _currentVideoEntry; // Referencia al objeto en Hive
-  List<String> _tags = []; // Lista local para la UI (se sincroniza desde _currentVideoEntry)
+  VideoEntry? _currentVideoEntry;
+  List<String> _tags = []; // Lista local con los tags del video actual
   double _currentPlaybackSpeed = 1.0;
-  bool _showControls = true; // Para mostrar/ocultar controles al tocar video
+  bool _showControls = true;
+  String? _selectedTrickToAdd; // Variable para guardar la selección del Dropdown
+
+  // Lista de movimientos disponibles para añadir (excluyendo los ya añadidos)
+  List<String> _availableTricks = [];
 
   @override
   void initState() {
     super.initState();
-    _loadVideoEntry(); // Carga la entrada de la DB ANTES de inicializar el video
+    _loadVideoEntryAndSetup(); // Carga datos y configura estado inicial
+  }
 
-    // Inicializa el controlador de video usando Uri.file
+  void _loadVideoEntryAndSetup() {
+    final box = Hive.box<VideoEntry>('videoEntriesBox');
+    try {
+      _currentVideoEntry = box.values.firstWhere(
+        (entry) => entry.videoPath == widget.videoPath,
+      );
+      // Sincroniza la lista local _tags
+      _tags = List<String>.from(_currentVideoEntry!.tags);
+      // Prepara la lista de trucos disponibles para el dropdown
+      _updateAvailableTricks();
+      // Inicializa el video DESPUÉS de cargar la entrada
+      _initializeVideo();
+    } catch (e) {
+      print(
+          "Error: No se encontró VideoEntry para ${widget.videoPath}. Error: $e");
+      _handleLoadError();
+    }
+  }
+
+  void _initializeVideo() {
     _controller = VideoPlayerController.file(File(widget.videoPath));
-
     _initializeVideoPlayerFuture = _controller.initialize().then((_) {
-      // Forzamos el redibujo para que se muestre el primer frame
       if (mounted) setState(() {});
-      _controller.setLooping(true); // El video se repetirá
-      // _controller.play(); // No iniciamos automáticamente
+      _controller.setLooping(true);
     }).catchError((error) {
-      // Manejo básico de errores si el video no carga
-       print("Error al inicializar video: $error");
-       // Mostramos mensaje y volvemos atrás si hay error al cargar
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Error al cargar el video: ${error.toString()}')),
-           );
-           Navigator.of(context).pop(); // Vuelve a la pantalla anterior
-         }
-       });
+      print("Error al inicializar video: $error");
+      _handleLoadError(errorMessage: 'Error al cargar el video: ${error.toString()}');
     });
 
-    // Listener para actualizar estado de reproducción (botón play/pause, tiempo)
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
   }
 
-  // Carga la entrada de VideoEntry desde Hive buscando por 'videoPath'
-  void _loadVideoEntry() {
-    final box = Hive.box<VideoEntry>('videoEntriesBox');
-    try {
-      // Usamos firstWhere para encontrar la entrada
-      _currentVideoEntry = box.values.firstWhere(
-        (entry) => entry.videoPath == widget.videoPath,
-      );
-      // Sincronizamos la lista local _tags con la de Hive al cargar
-      _tags = List<String>.from(_currentVideoEntry!.tags);
-    } catch (e) { // Captura el error si no se encuentra (StateError de firstWhere)
-      print("Error: No se encontró VideoEntry para ${widget.videoPath}. Error: $e");
-      // Si no se encuentra, mostramos error y volvemos atrás
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Error: No se encontró la información del video.')),
-           );
-           Navigator.of(context).pop();
-         }
-       });
-    }
+
+  void _handleLoadError({String errorMessage = 'Error: No se encontró la información del video.'}) {
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text(errorMessage)),
+         );
+         Navigator.of(context).pop();
+       }
+     });
+  }
+
+
+  // Actualiza la lista de trucos disponibles para el Dropdown
+  void _updateAvailableTricks() {
+    final allTricks = TrickingMoves.getAllMoves();
+    setState(() {
+      _availableTricks = allTricks.where((trick) => !_tags.contains(trick)).toList();
+      // Ordenar alfabéticamente para facilitar la búsqueda
+      _availableTricks.sort();
+      _selectedTrickToAdd = null; // Resetea la selección del dropdown
+    });
   }
 
   // --- Funciones para Tags ---
-  void _addTag() {
-    final String tag = _tagController.text.trim().toLowerCase(); // Guardamos en minúsculas
-    if (tag.isNotEmpty && _currentVideoEntry != null) {
-      if (!_tags.contains(tag)) {
-        setState(() => _tags.add(tag)); // Actualiza UI inmediatamente
-        _currentVideoEntry!.addTag(tag); // addTag guarda en Hive
-        _tagController.clear();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('El tag "$tag" ya existe.'), duration: Duration(seconds: 1)),
-        );
+  void _addSelectedTag() {
+    // Añade el tag seleccionado en el Dropdown (_selectedTrickToAdd)
+    if (_selectedTrickToAdd != null && _currentVideoEntry != null) {
+      if (!_tags.contains(_selectedTrickToAdd!)) {
+        // No necesitamos setState para _tags aquí porque _updateAvailableTricks lo hará
+        _currentVideoEntry!.addTag(_selectedTrickToAdd!); // addTag guarda en Hive y actualiza _currentVideoEntry.tags
+        // Actualizamos _tags local y la lista _availableTricks
+         _tags = List<String>.from(_currentVideoEntry!.tags); // Sincroniza lista local
+        _updateAvailableTricks(); // Esto llamará a setState
       }
     }
   }
 
   void _removeTag(String tag) {
     if (_currentVideoEntry != null) {
-      setState(() => _tags.remove(tag)); // Actualiza UI
+      // No necesitamos setState para _tags aquí porque _updateAvailableTricks lo hará
       _currentVideoEntry!.removeTag(tag); // removeTag guarda en Hive
+      // Actualizamos _tags local y la lista _availableTricks
+      _tags = List<String>.from(_currentVideoEntry!.tags); // Sincroniza lista local
+      _updateAvailableTricks(); // Esto llamará a setState
     }
   }
 
   // --- Funciones para Controles de Video ---
   void _togglePlayPause() {
-    if (!_controller.value.isInitialized) return; // No hacer nada si no está listo
+    if (!_controller.value.isInitialized) return;
     setState(() {
       _controller.value.isPlaying ? _controller.pause() : _controller.play();
     });
@@ -121,17 +131,13 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     }
   }
 
-  // Para mostrar/ocultar controles al tocar el video
   void _toggleControlsVisibility() {
     setState(() => _showControls = !_showControls);
   }
 
-
   @override
   void dispose() {
-    // Es MUY importante hacer dispose del controller para liberar recursos
     _controller.dispose();
-    _tagController.dispose();
     super.dispose();
   }
 
@@ -144,144 +150,160 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
         title: Text(videoFileName, style: const TextStyle(fontSize: 16)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: Column( // Column principal: Video arriba, Contenido abajo
+      body: Column(
         children: [
-          // --- Zona del Video Player ---
-          Flexible( // Permite que el video tome espacio, pero sin causar overflow
-             fit: FlexFit.loose, // El hijo puede ser más pequeño que el espacio asignado
+          // --- Zona del Video Player (sin cambios respecto a la versión anterior) ---
+          Flexible(
+            fit: FlexFit.loose,
             child: GestureDetector(
               onTap: _toggleControlsVisibility,
               child: FutureBuilder(
                 future: _initializeVideoPlayerFuture,
                 builder: (context, snapshot) {
-                  // Cuando el video está listo
                   if (snapshot.connectionState == ConnectionState.done && _controller.value.isInitialized) {
-                    return ConstrainedBox( // Limita la altura máxima del video
+                    return ConstrainedBox(
                       constraints: BoxConstraints(
-                        // No más del 60% de la altura de la pantalla
                         maxHeight: MediaQuery.of(context).size.height * 0.6,
                       ),
-                      child: AspectRatio( // Mantiene la proporción del video
+                      child: AspectRatio(
                         aspectRatio: _controller.value.aspectRatio,
-                        child: Stack( // Para superponer controles
+                        child: Stack(
                           alignment: Alignment.bottomCenter,
                           children: <Widget>[
                             VideoPlayer(_controller),
-                            // Controles que aparecen/desaparecen
                             AnimatedOpacity(
                                opacity: _showControls ? 1.0 : 0.0,
                                duration: const Duration(milliseconds: 300),
-                               child: _buildControlsOverlay(), // Usa el widget auxiliar
+                               child: _buildControlsOverlay(),
                             ),
                           ],
                         ),
                       ),
                     );
-                  }
-                  // Si hubo un error (ya manejado en initState, pero por si acaso)
-                  else if (snapshot.hasError) {
+                  } else if (snapshot.hasError) {
                      return AspectRatio(
                        aspectRatio: 16/9,
-                       child: Container(
-                         color: Colors.black,
-                         child: const Center(
-                           child: Text('Error al cargar video', style: TextStyle(color: Colors.red))
-                         ),
-                       ),
+                       child: Container(color: Colors.black, child: const Center(child: Text('Error al cargar video', style: TextStyle(color: Colors.red)))),
                      );
-                  }
-                  // Mientras carga, muestra indicador
-                  else {
+                  } else {
                     return const AspectRatio(
-                      aspectRatio: 16 / 9, // Placeholder
+                      aspectRatio: 16 / 9,
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }
                 },
               ),
             ),
-          ), // Fin del Flexible del video
+          ), // Fin Flexible video
 
           // --- Zona de Contenido Scrollable ---
-          Expanded( // Ocupa todo el espacio vertical restante
-            child: SingleChildScrollView( // Habilita el scroll si el contenido es muy alto
-              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0), // Padding arriba y lados
-              child: Column( // Contenido organizado verticalmente
-                crossAxisAlignment: CrossAxisAlignment.start, // Alinea textos a la izquierda
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- Controles de Velocidad ---
-                   Text('Velocidad:', style: Theme.of(context).textTheme.bodySmall), // Texto más pequeño
-                   const SizedBox(height: 4),
-                   Wrap( // Organiza los botones de velocidad
-                      spacing: 8.0, // Espacio horizontal
-                      runSpacing: 0.0, // Sin espacio vertical extra si van a otra línea
+                  // --- Controles de Velocidad (sin cambios) ---
+                  Text('Velocidad:', style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  Wrap(
+                      spacing: 8.0,
+                      runSpacing: 0.0,
                       children: [0.25, 0.5, 1.0, 1.5, 2.0]
                           .map((speed) => _buildSpeedButton(speed))
                           .toList(),
                     ),
-                   const SizedBox(height: 20), // Espacio antes de los tags
+                  const SizedBox(height: 20),
 
-                  // --- Zona de Tags ---
-                  Text('Etiquetas (Movimientos):', style: Theme.of(context).textTheme.titleSmall), // Título un poco más pequeño
+                  // --- *** SECCIÓN DE TAGS MODIFICADA *** ---
+                  Text('Etiquetas (Movimientos):', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
-                  Row( // Para el campo de texto y el botón de añadir
+
+                  // --- Dropdown y Botón para AÑADIR tags ---
+                  Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _tagController,
-                          decoration: const InputDecoration(
-                            hintText: 'Añadir nuevo tag...',
-                            isDense: true, // Reduce altura
-                            contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 8), // Ajusta padding interno
+                        // Usamos un DropdownButton para SELECCIONAR el tag
+                        child: DropdownButtonHideUnderline( // Oculta la línea de abajo
+                          child: Container(
+                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                             decoration: BoxDecoration(
+                               color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                               borderRadius: BorderRadius.circular(8),
+                             ),
+                            child: DropdownButton<String>(
+                              value: _selectedTrickToAdd,
+                              isExpanded: true, // Ocupa todo el ancho
+                              hint: const Text('Selecciona un movimiento...'), // Placeholder
+                              // Genera los items del dropdown desde la lista de disponibles
+                              items: _availableTricks.map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value, style: const TextStyle(fontSize: 14)),
+                                );
+                              }).toList(),
+                              // Actualiza la variable de estado cuando se selecciona algo
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedTrickToAdd = newValue;
+                                });
+                              },
+                              // Estilos adicionales
+                               dropdownColor: Theme.of(context).colorScheme.surfaceVariant,
+                               icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).iconTheme.color),
+                               style: Theme.of(context).textTheme.bodyMedium,
+                            ),
                           ),
-                          onSubmitted: (_) => _addTag(), // Añade al presionar Enter/Enviar
                         ),
                       ),
+                      // Botón para confirmar y añadir el tag seleccionado
                       IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        color: Theme.of(context).colorScheme.primary, // Color del tema
-                        onPressed: _addTag,
-                        tooltip: 'Añadir Tag',
+                        icon: const Icon(Icons.add_circle), // Icono más claro para añadir
+                        color: Theme.of(context).colorScheme.primary,
+                        tooltip: 'Añadir Tag Seleccionado',
+                        // Solo se habilita si hay algo seleccionado
+                        onPressed: _selectedTrickToAdd != null ? _addSelectedTag : null,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  // Mostrar los tags actuales
-                   _tags.isEmpty
-                     ? const Padding( // Mensaje si no hay tags
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: Text('No hay tags añadidos.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
-                     )
-                     : Wrap( // Muestra los chips con los tags
-                       spacing: 6.0,
-                       runSpacing: 4.0, // Espacio vertical si hay varias líneas
-                       children: _tags.map((tag) => Chip(
-                         label: Text(tag),
-                         labelStyle: const TextStyle(fontSize: 12), // Letra más pequeña
-                         onDeleted: () => _removeTag(tag), // Permite eliminar
-                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, // Menos padding
-                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0), // Ajusta padding
-                         deleteIconColor: Colors.redAccent.withOpacity(0.7),
-                         deleteIcon: const Icon(Icons.close, size: 14), // Icono de borrar más pequeño
-                       )).toList(),
-                     ),
+                  // --- Mostrar los tags YA AÑADIDOS al video ---
+                  Text('Tags añadidos:', style: Theme.of(context).textTheme.labelSmall),
+                  const SizedBox(height: 4),
+                  _tags.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text('Ningún tag añadido a este video.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                        )
+                      : Wrap( // Muestra los chips de los tags actuales
+                          spacing: 6.0,
+                          runSpacing: 4.0,
+                          children: _tags.map((tag) => Chip(
+                            label: Text(tag),
+                            labelStyle: const TextStyle(fontSize: 12),
+                            onDeleted: () => _removeTag(tag), // Permite eliminar
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                            deleteIconColor: Colors.redAccent.withOpacity(0.7),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                          )).toList(),
+                        ),
+                  // --- *** FIN SECCIÓN DE TAGS MODIFICADA *** ---
 
-                  // Espacio al final para que el último elemento no quede pegado abajo
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 30), // Espacio al final
                 ],
               ),
             ),
-          ), // Fin del Expanded del contenido
+          ), // Fin Expanded contenido
         ],
-      ), // Fin del Column principal
-    ); // Fin del Scaffold
+      ), // Fin Column principal
+    ); // Fin Scaffold
   }
 
-  // --- Widgets Auxiliares ---
-
-  // Botón para control de velocidad (usando ChoiceChip para mejor UI)
+  // --- Widgets Auxiliares (sin cambios) ---
   Widget _buildSpeedButton(double speed) {
+    // ... (igual que antes) ...
     bool isActive = _currentPlaybackSpeed == speed;
     return ChoiceChip(
       label: Text('${speed}x'),
@@ -296,9 +318,9 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     );
   }
 
-  // Widget para los controles superpuestos en el video
   Widget _buildControlsOverlay() {
-   if (!_controller.value.isInitialized) {
+    // ... (igual que antes) ...
+    if (!_controller.value.isInitialized) {
      return const SizedBox.shrink(); // No mostrar si no está listo
    }
     return Container(
@@ -352,7 +374,6 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                          );
                       },
                    ),
-                   // Podrías añadir más controles aquí (volumen, pantalla completa, etc.)
                    const Spacer(), // Empuja los siguientes elementos a la derecha (si los hubiera)
                 ],
               ),
@@ -362,13 +383,12 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     );
   }
 
-  // Formatea la duración para mostrar MM:SS
   String _formatDuration(Duration duration) {
-    // Maneja caso de duración desconocida (puede pasar al inicio)
+    // ... (igual que antes) ...
     if (duration == Duration.zero) return '00:00';
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }
-}
+} // Fin _AnalyzerScreenState
