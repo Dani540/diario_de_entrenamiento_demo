@@ -15,10 +15,11 @@ dependencies:
   hive_flutter: ^1.1.0   # Integración de Hive con Flutter
   path_provider: ^2.1.1 # Para obtener directorios del sistema (donde guardar Hive)
   image_picker: ^1.0.4    # Para seleccionar videos de la galería
-  video_player: ^2.8.1    # Para reproducir videos
+  video_player: ^2.10.0 # Reproducción de videos
   permission_handler: ^11.0.1 # Para solicitar permisos (galería)
   provider: ^6.0.5       # Gestión del estado
-  intl: ^0.18.0          # Internacionalización y formato de fechas
+  intl: ^0.18.0          # Internacionalización y formato de fecha
+  video_player_win: ^3.2.0
   # --------------------------
 
 dev_dependencies:
