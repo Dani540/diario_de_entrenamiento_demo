@@ -228,7 +228,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                           child: Container(
                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                              decoration: BoxDecoration(
-                               color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                               color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.5).round()), // Fondo ligeramente diferente
                                borderRadius: BorderRadius.circular(8),
                              ),
                             child: DropdownButton<String>(
