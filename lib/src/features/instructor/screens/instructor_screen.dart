@@ -71,7 +71,7 @@ class _InstructorScreenState extends State<InstructorScreen> {
                         return Card(
                           elevation: 2,
                           margin: const EdgeInsets.symmetric(vertical: 6.0),
-                           color: Theme.of(context).colorScheme.surfaceVariant,
+                           color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           child: ListTile(
                             leading: Icon(iconData, color: Theme.of(context).colorScheme.primary),
                             title: Text(suggestion),

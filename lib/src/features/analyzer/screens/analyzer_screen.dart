@@ -228,7 +228,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                           child: Container(
                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                              decoration: BoxDecoration(
-                               color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                               color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                                borderRadius: BorderRadius.circular(8),
                              ),
                             child: DropdownButton<String>(
@@ -249,7 +249,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                                 });
                               },
                               // Estilos adicionales
-                               dropdownColor: Theme.of(context).colorScheme.surfaceVariant,
+                               dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                                icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).iconTheme.color),
                                style: Theme.of(context).textTheme.bodyMedium,
                             ),
@@ -311,7 +311,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
       selected: isActive,
       onSelected: (_) => _setPlaybackSpeed(speed),
       selectedColor: Theme.of(context).colorScheme.primary, // Color cuando está activo
-      backgroundColor: Theme.of(context).colorScheme.surfaceVariant, // Color de fondo normal
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, // Color de fondo normal
       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       visualDensity: VisualDensity.compact,
        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
