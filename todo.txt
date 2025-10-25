@@ -1,2 +1,7 @@
-* Opcion para eliminar un video
-* Poder cambiar el tamaño de los items en pantalla (la cuadricula).
+* Quitar boton añadir del centro de la appBar, dejarlo solo en la pantalla de galeria como un item más (es decir, seguido del ultimo item, como una card con el simbolo "+"), y dejarlo tambien como boton flotante por ahí (y añadir la opcion de desactivar su visibilidad en las opcinoes).
+* Permitir desplazar por pantallas deslizando la pantalla hacia los lados.
+* Incluir display de tres puntitos en la esquina superior derecha (solo para windows/web) para desplegar las opciones de modificacion de video (renombrar/borrar).
+* Añadir la transicion de desplazamiento horizontal entre pantallas.
+* Sincronizar el instructor con los clips eliminados para que quite esa info de su algoritmo, de forma que si no hay nada en la galeria, el instructor solo recomiende lo más basico (añadir la opcion de mantener el registro aunque se borren los clips en la pestaña de ajustes).
+
+* Cambiar la dustribucion de la pantalla de "analyzer", el video queda en medio, la velocidad debe poder manejarse con una barra de esas que se le desplaza el centro y debe estar oculta, de modo que se pueda ver presionando el boton flotante de velocidad (boton que se sobrepondrá al video, y que tendrá opacidad baja hasta ser presionado, la barra tambien se esconderá al dejar de desplazar, el video debe poder seguir reproduciendose, la barra y el boton deben estar en la parte baja del video); los tags de movimiento deben poder ir añadiendose a medida que se ve el video (este boton puede estar en la parte lateral del video), por lo que añadiremos otro boton flotante que sea de añadir tag (con un icono de etiqueta) donde, al presionarlo, nos despliegara directamente la barra de seleccion de tags, al añadir un tag, este se mostrará abajo (por encima del video).

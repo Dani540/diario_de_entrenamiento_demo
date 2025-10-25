@@ -1,6 +1,6 @@
+// lib/src/features/gallery/screens/gallery_screen.dart
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Para preferencias
 import 'package:video_thumbnail/video_thumbnail.dart';       // Para thumbnails (Android/iOS)
@@ -10,9 +10,9 @@ import 'dart:io';                                         // Para File, Director
 // Importaciones locales
 import '../../video_data/models/video_entry.dart';
 import '../../video_data/services/video_picker_service.dart';
-import '../../analyzer/screens/analyzer_screen.dart';
-import '../../instructor/screens/instructor_screen.dart';
-
+import '../../analyzer/screens/analyzer_screen.dart'; // Necesario para la navegación en _showItemMenu
+import '../../instructor/screens/instructor_screen.dart'; // Necesario para la navegación en _showItemMenu
+import '../widgets/video_grid_item.dart'; // Importa el widget componentizado
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -23,6 +23,7 @@ class GalleryScreen extends StatefulWidget {
 
 class _GalleryScreenState extends State<GalleryScreen> {
   final VideoPickerService _pickerService = VideoPickerService();
+  // Acceso directo a la caja de Hive
   final Box<VideoEntry> _videoBox = Hive.box<VideoEntry>('videoEntriesBox');
 
   // Estado para UI
@@ -36,14 +37,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadGridSizePreference();
+    _loadGridSizePreference(); // Carga la preferencia al iniciar
   }
 
   // --- Carga/Guarda Preferencia de Tamaño de Cuadrícula ---
   Future<void> _loadGridSizePreference() async {
     // Si estamos en web, shared_preferences puede no funcionar sin configuración extra.
     // Usaremos valores por defecto por ahora en web.
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || Platform.isAndroid || Platform.isIOS) {
+     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || Platform.isAndroid || Platform.isIOS) {
        try {
          final prefs = await SharedPreferences.getInstance();
          setState(() {
@@ -51,7 +52,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
          });
        } catch (e) {
           // Error al cargar preferencias, usar valor por defecto
-          // print("Error cargando preferencias: $e"); // Quitado print
           _crossAxisCount = 3;
        }
     } else {
@@ -68,8 +68,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
          final prefs = await SharedPreferences.getInstance();
          await prefs.setInt(_gridSizePrefKey, count);
        } catch (e) {
-         // print("Error guardando preferencias: $e"); // Quitado print
-          if (mounted) _showSnackBar('Error al guardar preferencia de tamaño.');
+         if (mounted) _showSnackBar('Error al guardar preferencia de tamaño.');
        }
      }
   }
@@ -86,10 +85,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
     // Comprobar si ya existe ANTES de copiar y generar thumbnail
      bool exists = _videoBox.values.any((entry) {
-        // Comparamos el nombre base y quizás el tamaño para robustez, ya que la ruta interna será diferente
-        // Por ahora, solo comparamos el nombre de archivo original.
+        // Comparamos nombre base y original path por si acaso
         return p.basename(entry.videoPath) == p.basename(originalVideoPath) || entry.videoPath == originalVideoPath;
-        // Podríamos hacer una comparación más robusta si guardamos el path original en otro campo
      });
      if (exists) {
         _showSnackBar('Este video (o uno con el mismo nombre) ya está en tu diario.');
@@ -129,22 +126,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
            if (!await thumbDir.exists()) {
              await thumbDir.create(recursive: true);
            }
-           // Usamos el video COPIADO para generar la miniatura
            thumbnailFilePath = await VideoThumbnail.thumbnailFile(
-             video: copiedVideoPath, // ¡Usa la ruta de la copia!
+             video: copiedVideoPath, // Usa la ruta de la copia
              thumbnailPath: thumbDir.path,
              imageFormat: ImageFormat.JPEG,
              maxWidth: 200,
              quality: 80,
            );
         } catch (thumbError) {
-          // print("Error al generar thumbnail con video_thumbnail: $thumbError"); // Quitado print
           if (mounted) _showSnackBar('No se pudo generar la miniatura: $thumbError');
-          thumbnailFilePath = null; // Asegura que sea null si falla
+          thumbnailFilePath = null;
         }
-      } else {
-         // print("Generación de thumbnail no soportada en esta plataforma."); // Quitado print
-         // Para Windows, Web, etc., thumbnailFilePath se queda como null.
       }
 
       // --- 3. Añadir a Hive ---
@@ -158,9 +150,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       if (mounted) _showSnackBar('Video añadido con éxito.');
 
     } catch (e) {
-      // print("Error en _addVideo: $e"); // Quitado print
       if (mounted) _showSnackBar('Error al procesar video: $e');
-      // Intenta limpiar si algo falló
       if (copiedVideoPath != null) await _tryDeleteFile(copiedVideoPath);
       if (thumbnailFilePath != null) await _tryDeleteFile(thumbnailFilePath);
     } finally {
@@ -171,7 +161,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
   // ----------------------------------------------------------------
 
-  // --- FUNCIÓN PARA ELIMINAR VIDEO (ACTUALIZADA) ---
+  // --- FUNCIÓN PARA ELIMINAR VIDEO ---
   Future<void> _deleteVideo(VideoEntry entry) async {
     final String nameToShow = entry.displayName ?? p.basename(entry.videoPath);
     final bool? confirmDelete = await showDialog<bool>(
@@ -198,12 +188,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
     if (confirmDelete == true && mounted) {
       setState(() { _isLoading = true; _loadingMessage = 'Eliminando...'; });
       try {
-        // 1. Eliminar archivo de miniatura (si existe)
+        // 1. Eliminar archivo de miniatura
         if (entry.thumbnailPath != null) {
           await _tryDeleteFile(entry.thumbnailPath!);
         }
         // 2. Eliminar archivo de video COPIADO
-        await _tryDeleteFile(entry.videoPath); // entry.videoPath ahora apunta a la copia
+        await _tryDeleteFile(entry.videoPath); // entry.videoPath apunta a la copia
 
         // 3. Eliminar la entrada de Hive
         await entry.delete();
@@ -211,7 +201,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
         if (mounted) _showSnackBar('Video eliminado.');
 
       } catch (e) {
-         // print("Error al eliminar video: $e"); // Quitado print
         if (mounted) _showSnackBar('Error al eliminar el video: $e');
       } finally {
          if (mounted) setState(() { _isLoading = false; _loadingMessage = ''; });
@@ -248,39 +237,28 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
     );
 
-    // Si se ingresó un nombre válido y diferente
     if (newName != null && newName.isNotEmpty && newName != entry.displayName) {
       entry.displayName = newName;
-      await entry.save(); // Guarda el cambio en Hive
+      await entry.save();
       if(mounted) _showSnackBar('Video renombrado.');
-      // El ValueListenableBuilder se encarga de actualizar la UI
     } else if (newName != null && newName.isEmpty) {
        if(mounted) _showSnackBar('El nombre no puede estar vacío.');
     }
   }
   // ------------------------------------
 
-  // --- Navegaciones ---
-  void _navigateToAnalyzer(String videoPath) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        // Pasamos la ruta de la COPIA al analizador
-        builder: (context) => AnalyzerScreen(videoPath: videoPath),
-      ),
-    );
-  }
+  // --- Navegaciones (Ahora solo instructor, el analizador se llama desde VideoGridItem) ---
   void _navigateToInstructor() {
      Navigator.push(
        context,
        MaterialPageRoute(builder: (context) => const InstructorScreen()),
      );
   }
-  // --------------------
+  // ------------------------------------------------------------------------------------
 
   // --- Helper para mostrar SnackBar ---
   void _showSnackBar(String message) {
-    if (!mounted) return; // Chequeo extra
+    if (!mounted) return;
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
@@ -296,212 +274,33 @@ class _GalleryScreenState extends State<GalleryScreen> {
         await file.delete();
       }
     } catch (e) {
-      // print('Error al eliminar archivo $path: $e'); // Quitado print
+       // Error silencioso al borrar archivo, opcionalmente loggear
     }
   }
   // ------------------------------------------
 
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi Diario'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-           // --- BOTÓN PARA SELECCIONAR TAMAÑO GRID (PopupMenuButton) ---
-           PopupMenuButton<int>(
-              initialValue: _crossAxisCount,
-              onSelected: (int newSize) {
-                // Llama a la función que guarda la preferencia Y actualiza estado
-                _saveGridSizePreference(newSize);
-              },
-              icon: Icon( // Icono cambia según selección
-                _crossAxisCount == 2 ? Icons.grid_view_sharp // Menos columnas, iconos más grandes
-                : _crossAxisCount == 3 ? Icons.grid_view_rounded // Medio
-                : Icons.grid_4x4_rounded // Más columnas, iconos más pequeños
-              ),
-              tooltip: 'Tamaño de cuadrícula',
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
-                 const PopupMenuItem<int>( value: 2, child: Text('2 Columnas')),
-                 const PopupMenuItem<int>( value: 3, child: Text('3 Columnas')),
-                 const PopupMenuItem<int>( value: 4, child: Text('4 Columnas')),
-               ],
-           )
-           // ----------------------------------------------------------
-        ],
-      ),
-      // Stack para mostrar overlay de carga
-      body: Stack(
-        children: [
-          ValueListenableBuilder<Box<VideoEntry>>(
-            valueListenable: _videoBox.listenable(),
-            builder: (context, box, _) {
-              // Ordenamos las entradas, por ejemplo, por fecha implícita en clave?
-              // O necesitaríamos un campo de fecha de creación en VideoEntry?
-              // Por ahora, usamos el orden de Hive.
-              final videoEntries = box.values.toList();
-
-              if (videoEntries.isEmpty && !_isLoading) {
-                return const Center( /* ... Mensaje sin videos ... */ );
-              }
-
-              // --- Cuadrícula ---
-              return GridView.builder(
-                key: ValueKey(_crossAxisCount), // Ayuda a Flutter a redibujar bien al cambiar tamaño
-                padding: const EdgeInsets.all(12.0),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: _crossAxisCount,
-                  crossAxisSpacing: 8.0,
-                  mainAxisSpacing: 8.0,
-                  childAspectRatio: 0.8, // Mantiene proporción alto/ancho
-                ),
-                itemCount: videoEntries.length,
-                itemBuilder: (context, index) {
-                  final entry = videoEntries[index];
-                  final String displayTitle = entry.displayName?.isNotEmpty == true
-                     ? entry.displayName!
-                     : p.basenameWithoutExtension(entry.videoPath);
-
-                  Widget thumbnailWidget;
-                  // --- Lógica Thumbnail Condicional (Android/iOS vs Otras) ---
-                  if ((Platform.isAndroid || Platform.isIOS) && entry.thumbnailPath != null) {
-                      final thumbFile = File(entry.thumbnailPath!);
-                      // Usamos FutureBuilder para manejar existencia asíncrona del archivo
-                      thumbnailWidget = FutureBuilder<bool>(
-                          future: thumbFile.exists(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState != ConnectionState.done || snapshot.hasError || !snapshot.data!) {
-                              return _buildPlaceholderIcon(); // Muestra placeholder si no existe o mientras carga
-                            }
-                            // Si existe, muestra la imagen
-                            return Image.file(
-                              thumbFile,
-                              key: ValueKey(entry.key), // Usa la clave Hive para identificar
-                              fit: BoxFit.cover,
-                              frameBuilder: (context, child, frame, wasSyncLoaded) {
-                                if (wasSyncLoaded || frame != null) return child;
-                                return Container(color: Colors.grey[850]);
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                   color: Colors.grey[850],
-                                   child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey)),
-                                );
-                              },
-                            );
-                          }
-                      );
-                  } else {
-                    // Para Windows, Web, o si falló la generación en Android/iOS
-                    thumbnailWidget = _buildPlaceholderIcon();
-                  }
-                  // --------------------------------------------------------------
-
-                  // --- GestureDetector con Menú en LongPress ---
-                  return GestureDetector(
-                    onTap: () => _navigateToAnalyzer(entry.videoPath), // Pasa la ruta de la COPIA
-                    onLongPress: () => _showItemMenu(context, entry), // Muestra menú contextual
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8.0),
-                      child: GridTile(
-                        footer: GridTileBar(
-                           backgroundColor: Colors.black54,
-                           title: Text(
-                             displayTitle, // Muestra nombre personalizado o de archivo
-                             textAlign: TextAlign.center,
-                             overflow: TextOverflow.ellipsis,
-                             style: const TextStyle(fontSize: 10),
-                           ),
-                        ),
-                        child: thumbnailWidget, // Muestra miniatura o placeholder
-                      ),
-                    ),
-                  );
-                  // -------------------------------------------
-                },
-              );
-            },
-          ), // Fin ValueListenableBuilder
-
-          // --- Overlay de Carga ---
-           if (_isLoading)
-             Container(
-               color: Colors.black.withOpacity(0.6), // Fondo semitransparente
-               child: Center(
-                 child: Container(
-                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                   decoration: BoxDecoration(
-                     color: Theme.of(context).colorScheme.surface, // Usa color del tema
-                     borderRadius: BorderRadius.circular(12),
-                     boxShadow: [
-                        BoxShadow(
-                           color: Colors.black.withOpacity(0.2),
-                           blurRadius: 8,
-                           offset: const Offset(0, 4),
-                        ),
-                     ]
-                   ),
-                   child: Column(
-                     mainAxisSize: MainAxisSize.min,
-                     children: [
-                       const CircularProgressIndicator(),
-                       const SizedBox(height: 16),
-                       Text(
-                         _loadingMessage,
-                         style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                         textAlign: TextAlign.center,
-                       ),
-                     ],
-                   ),
-                 ),
-               ),
-             ),
-          // ------------------------
-        ], // Fin Stack principal
-      ),
-      // --- SpeedDial (sin cambios) ---
-      floatingActionButton: SpeedDial( /* ... (igual que antes) ... */ ),
-    );
-  } // Fin build()
-
-  // --- Widget Auxiliar para Placeholder (sin cambios) ---
-  Widget _buildPlaceholderIcon() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        border: Border.all(color: Colors.grey[700]!, width: 0.5),
-      ),
-      child: Icon(
-        Icons.videocam_off_outlined,
-        color: Colors.white38,
-        size: 40,
-      ),
-    );
-  }
-  // ----------------------------------------------------
-
-  // --- FUNCIÓN PARA MOSTRAR MENÚ CONTEXTUAL ---
-  void _showItemMenu(BuildContext context, VideoEntry entry) {
-    // Obtenemos el RenderBox del elemento presionado para posicionar el menú
-    // Esto requiere envolver el GestureDetector en un Builder o usar GlobalKey,
-    // por simplicidad, lo posicionaremos genéricamente cerca del centro.
-    // Una implementación más precisa requeriría pasar el `TapDownDetails` del long press.
-    final position = RelativeRect.fromLTRB(100, 200, 100, 200); // Posición genérica
+  // --- Menú Contextual (llamado por VideoGridItem) ---
+  void _showItemMenu(BuildContext itemContext, VideoEntry entry, Offset tapPosition) {
+    // Usa itemContext (el contexto del Builder dentro del itemBuilder)
+    final RenderBox overlay = Overlay.of(itemContext).context.findRenderObject() as RenderBox;
 
     showMenu<String>(
-      context: context,
-      position: position, // Usa la posición calculada (o la genérica)
+      context: itemContext, // Usa el contexto correcto
+      position: RelativeRect.fromRect(
+         // Crea un Rect pequeño en la posición del tap para anclar el menú
+         Rect.fromLTWH(tapPosition.dx, tapPosition.dy, 1, 1),
+         Offset.zero & overlay.size // Límites del overlay
+      ),
       items: <PopupMenuEntry<String>>[
         PopupMenuItem<String>(
           value: 'rename',
           child: const ListTile(
             leading: Icon(Icons.edit_outlined),
             title: Text('Renombrar'),
-            dense: true, // Más compacto
+            dense: true,
           ),
         ),
-        const PopupMenuDivider(), // Separador
+        const PopupMenuDivider(),
         PopupMenuItem<String>(
           value: 'delete',
           child: ListTile(
@@ -512,15 +311,128 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ),
       ],
       elevation: 8.0,
-    ).then<void>((String? value) {
-      if (value == null) return;
+    ).then<void>((String? value) { // Callback después de seleccionar o cerrar
       if (value == 'rename') {
+        // Necesitamos el contexto principal para mostrar el diálogo,
+        // por eso es mejor llamar a _renameVideo desde aquí (el State).
         _renameVideo(entry);
       } else if (value == 'delete') {
         _deleteVideo(entry);
       }
     });
   }
-  // ------------------------------------------
+  // ----------------------------------------------------
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mi Diario'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+           PopupMenuButton<int>(
+              initialValue: _crossAxisCount,
+              onSelected: _saveGridSizePreference, // Llama a la función que guarda y actualiza
+              icon: Icon( // Icono dinámico
+                _crossAxisCount == 2 ? Icons.grid_view_sharp
+                : _crossAxisCount == 3 ? Icons.grid_view_rounded
+                : Icons.grid_4x4_rounded
+              ),
+              tooltip: 'Tamaño de cuadrícula',
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
+                 const PopupMenuItem<int>( value: 2, child: Text('2 Columnas')),
+                 const PopupMenuItem<int>( value: 3, child: Text('3 Columnas')),
+                 const PopupMenuItem<int>( value: 4, child: Text('4 Columnas')),
+               ],
+           )
+        ],
+      ),
+      // Stack para el overlay de carga
+      body: Stack(
+        children: [
+          ValueListenableBuilder<Box<VideoEntry>>(
+            valueListenable: _videoBox.listenable(),
+            builder: (context, box, _) {
+              final videoEntries = box.values.toList();
+
+              if (videoEntries.isEmpty && !_isLoading) {
+                return const Center(
+                   child: Padding(
+                     padding: EdgeInsets.all(20.0),
+                     child: Text(
+                       'Aún no has añadido videos.\nUsa el menú (+) para empezar.', // Mensaje actualizado
+                       textAlign: TextAlign.center,
+                       style: TextStyle(fontSize: 16, color: Colors.grey),
+                     ),
+                   ),
+                );
+              }
+
+              // --- GridView Refactorizado ---
+              return GridView.builder(
+                // Key para forzar reconstrucción si cambia el número de columnas
+                key: ValueKey('grid_$_crossAxisCount'),
+                padding: const EdgeInsets.all(12.0),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _crossAxisCount, // Usa el estado
+                  crossAxisSpacing: 8.0,
+                  mainAxisSpacing: 8.0,
+                  childAspectRatio: 0.8, // Relación ancho/alto
+                ),
+                itemCount: videoEntries.length,
+                itemBuilder: (context, index) {
+                  final entry = videoEntries[index];
+                  // Usa Builder para asegurar un context correcto para _showItemMenu
+                  return Builder(
+                     builder: (itemContext) {
+                        return VideoGridItem(
+                          entry: entry,
+                          // Pasa la función _showItemMenu como callback
+                          onLongPress: (ctx, videoEntry, position) => _showItemMenu(ctx, videoEntry, position),
+                        );
+                     }
+                  );
+                },
+              );
+              // -----------------------------
+            },
+          ), // Fin ValueListenableBuilder
+
+          // --- Overlay de Carga ---
+           if (_isLoading)
+             Positioned.fill( // Ocupa toda la pantalla
+               child: Container(
+                 color: Colors.black.withAlpha((255*0.6).round()), // Fondo semitransparente
+                 child: Center(
+                   child: Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                     decoration: BoxDecoration(
+                       color: Theme.of(context).colorScheme.surface,
+                       borderRadius: BorderRadius.circular(12),
+                       boxShadow: kElevationToShadow[4], // Sombra sutil
+                     ),
+                     child: Column(
+                       mainAxisSize: MainAxisSize.min,
+                       children: [
+                         const CircularProgressIndicator(),
+                         const SizedBox(height: 16),
+                         Text(
+                           _loadingMessage,
+                           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                           textAlign: TextAlign.center,
+                         ),
+                       ],
+                     ),
+                   ),
+                 ),
+               ),
+             ),
+          // ------------------------
+        ], // Fin Stack principal
+      ),
+       // El FloatingActionButton ahora está en MainScreen
+    );
+  } // Fin build()
 
 } // Fin _GalleryScreenState
