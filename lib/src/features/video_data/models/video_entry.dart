@@ -5,14 +5,25 @@ part 'video_entry.g.dart'; // Archivo generado por Hive
 @HiveType(typeId: 0) // typeId debe ser único para cada modelo Hive
 class VideoEntry extends HiveObject {
   @HiveField(0) // Índice único para cada campo
-  final String videoPath;
+  String videoPath;
 
   @HiveField(1)
   List<String> tags;
 
-  // Constructor
-  VideoEntry({required this.videoPath, List<String>? tags}) : tags = tags ?? [];
+  @HiveField(2) 
+  String? thumbnailPath;
 
+  @HiveField(3)
+  String? displayName;
+
+  // Constructor
+  VideoEntry({
+    required this.videoPath,
+    List<String>? tags,
+    this.thumbnailPath, 
+    this.displayName,
+  }) : tags = tags ?? [];
+  
   // Método para añadir un tag
   void addTag(String tag) {
     if (!tags.contains(tag) && tag.trim().isNotEmpty) {
@@ -29,6 +40,6 @@ class VideoEntry extends HiveObject {
 
   @override
   String toString() {
-    return 'VideoEntry(videoPath: $videoPath, tags: $tags)';
+     return 'VideoEntry(videoPath: $videoPath, tags: $tags, displayName: $displayName, thumbnailPath: $thumbnailPath)';
   }
 }

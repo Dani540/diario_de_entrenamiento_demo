@@ -1,0 +1,2 @@
+* Opcion para eliminar un video
+* Poder cambiar el tamaño de los items en pantalla (la cuadricula).

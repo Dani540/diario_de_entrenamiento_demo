@@ -19,17 +19,23 @@ class VideoEntryAdapter extends TypeAdapter<VideoEntry> {
     return VideoEntry(
       videoPath: fields[0] as String,
       tags: (fields[1] as List?)?.cast<String>(),
+      thumbnailPath: fields[2] as String?,
+      displayName: fields[3] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, VideoEntry obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.videoPath)
       ..writeByte(1)
-      ..write(obj.tags);
+      ..write(obj.tags)
+      ..writeByte(2)
+      ..write(obj.thumbnailPath)
+      ..writeByte(3)
+      ..write(obj.displayName);
   }
 
   @override

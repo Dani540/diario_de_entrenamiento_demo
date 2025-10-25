@@ -285,7 +285,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                             onDeleted: () => _removeTag(tag), // Permite eliminar
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                            deleteIconColor: Colors.redAccent.withOpacity(0.7),
+                            deleteIconColor: Colors.redAccent.withAlpha((255*0.7).round()),
                             deleteIcon: const Icon(Icons.close, size: 14),
                           )).toList(),
                         ),
@@ -329,7 +329,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
          gradient: LinearGradient(
            begin: Alignment.topCenter,
            end: Alignment.bottomCenter,
-           colors: [ Colors.transparent, Colors.black.withOpacity(0.8) ],
+           colors: [ Colors.transparent, Colors.black.withAlpha((255*0.8).round()) ],
            stops: const [0.0, 1.0], // Empieza transparente, termina oscuro
          )
       ),
@@ -343,8 +343,8 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
                colors: VideoProgressColors( // Colores personalizados
                   playedColor: Theme.of(context).colorScheme.primary,
-                  bufferedColor: Colors.white.withOpacity(0.3),
-                  backgroundColor: Colors.white.withOpacity(0.1),
+                  bufferedColor: Colors.white.withAlpha((255*0.3).round()),
+                  backgroundColor: Colors.white.withAlpha((255*0.1).round()),
                ),
             ),
             // Fila con botón Play/Pause y Tiempo
