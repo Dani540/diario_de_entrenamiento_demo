@@ -1,45 +1,49 @@
+// lib/src/features/video_data/models/video_entry.dart
 import 'package:hive/hive.dart';
+part 'video_entry.g.dart'; // Asegúrate que este archivo se actualice
 
-part 'video_entry.g.dart'; // Archivo generado por Hive
-
-@HiveType(typeId: 0) // typeId debe ser único para cada modelo Hive
+@HiveType(typeId: 0)
 class VideoEntry extends HiveObject {
-  @HiveField(0) // Índice único para cada campo
-  String videoPath;
+  @HiveField(0)
+  String videoPath; // Path de la copia interna
 
   @HiveField(1)
   List<String> tags;
 
-  @HiveField(2) 
+  @HiveField(2)
   String? thumbnailPath;
 
   @HiveField(3)
   String? displayName;
 
-  // Constructor
+  @HiveField(4)
+  bool isArchived;
+  // ---------------------------------
+
+  // Constructor actualizado
   VideoEntry({
     required this.videoPath,
     List<String>? tags,
-    this.thumbnailPath, 
+    this.thumbnailPath,
     this.displayName,
+    this.isArchived = false, // Valor por defecto es false
   }) : tags = tags ?? [];
-  
-  // Método para añadir un tag
+
+  // --- Métodos addTag y removeTag (sin cambios) ---
   void addTag(String tag) {
     if (!tags.contains(tag) && tag.trim().isNotEmpty) {
       tags.add(tag.trim());
-      save(); // Guarda el objeto en Hive después de modificarlo
+      save();
     }
   }
-
-  // Método para eliminar un tag
   void removeTag(String tag) {
     tags.remove(tag);
-    save(); // Guarda el objeto en Hive
+    save();
   }
+  // ------------------------------------------
 
   @override
   String toString() {
-     return 'VideoEntry(videoPath: $videoPath, tags: $tags, displayName: $displayName, thumbnailPath: $thumbnailPath)';
+     return 'VideoEntry(videoPath: $videoPath, tags: $tags, displayName: $displayName, thumbnailPath: $thumbnailPath, isArchived: $isArchived)';
   }
 }

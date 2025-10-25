@@ -1,10 +1,15 @@
 // lib/src/features/instructor/screens/instructor_screen.dart
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+// Quitamos import de Hive y VideoEntry, ahora la lógica está en el servicio
+// import 'package:hive_flutter/hive_flutter.dart';
+// import '../../video_data/models/video_entry.dart';
+import '../instructor_service.dart'; // Importa el servicio del instructor
+import 'dart:io'; // Necesario para Platform
+// Quitamos SharedPreferences si ya no se lee directamente aquí
+// import 'package:shared_preferences/shared_preferences.dart';
 
-// Importaciones locales
-import '../../video_data/models/video_entry.dart';
-import '../instructor_service.dart'; // Importa el servicio
+// Define las claves de SharedPreferences aquí o en un archivo central
+// const String keepArchivedTagsPrefKey = 'keep_archived_tags'; // Se usa en el service
 
 class InstructorScreen extends StatefulWidget {
   const InstructorScreen({super.key});
@@ -16,24 +21,46 @@ class InstructorScreen extends StatefulWidget {
 class _InstructorScreenState extends State<InstructorScreen> {
   final RuleBasedInstructor _instructor = RuleBasedInstructor();
   List<String> _suggestions = []; // Lista para guardar las sugerencias
+  bool _isLoadingSuggestions = true; // Estado para mostrar carga inicial/refresco
 
   @override
   void initState() {
     super.initState();
-    // Generamos las sugerencias cuando la pantalla se carga por primera vez
-    _generateSuggestions();
+    _generateSuggestions(); // Llama a la función async al iniciar
   }
 
-  void _generateSuggestions() {
-    final videoBox = Hive.box<VideoEntry>('videoEntriesBox');
-    final videoEntries = videoBox.values.toList();
-    final Set<String> allUserTags = {};
-    for (var entry in videoEntries) {
-      allUserTags.addAll(entry.tags);
+  // Ahora es async y maneja el estado de carga correctamente
+  Future<void> _generateSuggestions() async {
+    // Si ya está cargando, no hacer nada (evita múltiples llamadas)
+    // Usamos '!_isLoadingSuggestions' para iniciar la carga si NO está cargando
+    if (!_isLoadingSuggestions && mounted) {
+       setState(() { _isLoadingSuggestions = true; }); // Muestra loader solo si no estaba cargando
+    } else if (!mounted) {
+       return; // Si no está montado, salir
     }
-    setState(() { // Actualizamos el estado con las nuevas sugerencias
-      _suggestions = _instructor.getSuggestions(allUserTags.toList(), count: 5); // Pedimos 5 sugerencias
-    });
+    // Si ya estaba cargando (initState), _isLoadingSuggestions ya es true
+
+    try {
+      // Llama al servicio del instructor y ESPERA (await) el resultado
+      // El servicio ahora es async porque lee SharedPreferences
+      final List<String> newSuggestions = await _instructor.getSuggestions(count: 5);
+
+      // Verifica si el widget sigue montado antes de actualizar el estado
+      if (mounted) {
+        setState(() {
+          _suggestions = newSuggestions; // Asigna el resultado esperado (List<String>)
+          _isLoadingSuggestions = false; // Oculta loader
+        });
+      }
+    } catch (e) {
+      // Manejo de errores
+      if (mounted) {
+        setState(() { _isLoadingSuggestions = false; }); // Oculta loader en caso de error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al obtener sugerencias: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   @override
@@ -42,72 +69,77 @@ class _InstructorScreenState extends State<InstructorScreen> {
       appBar: AppBar(
         title: const Text('Instructor'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+         automaticallyImplyLeading: false, // Oculta botón 'atrás' (está en PageView)
+         centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch, // Estira los hijos horizontalmente
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Título o Introducción
             Text(
-              'Basado en tus videos, aquí tienes algunas ideas para practicar:',
+              'Basado en tus videos y configuración, aquí tienes algunas ideas:',
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
 
-            // Lista de Sugerencias
-            Expanded( // Ocupa el espacio restante
-              child: _suggestions.isEmpty
-                  ? const Center(child: Text('No hay sugerencias por ahora. ¡Sigue añadiendo videos!'))
-                  : ListView.builder(
-                      itemCount: _suggestions.length,
-                      itemBuilder: (context, index) {
-                        final suggestion = _suggestions[index];
-                        // Determinar si es un combo o movimiento simple por el "->"
-                        bool isCombo = suggestion.contains('->');
-                        IconData iconData = isCombo ? Icons.link : Icons.directions_run; // Iconos diferentes
-
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 6.0),
-                           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          child: ListTile(
-                            leading: Icon(iconData, color: Theme.of(context).colorScheme.primary),
-                            title: Text(suggestion),
-                            // Podrías añadir un botón aquí para "Marcar como intentado" o "Ver tutorial" en el futuro
-                            // trailing: IconButton(
-                            //   icon: Icon(Icons.check_circle_outline),
-                            //   onPressed: () { /* Marcar completado? */ },
-                            // ),
+            // --- Lista de Sugerencias o Indicador de Carga ---
+            Expanded(
+              child: _isLoadingSuggestions
+                  ? const Center(child: CircularProgressIndicator()) // Muestra loader
+                  : _suggestions.isEmpty
+                      ? Center( // Mensaje si no hay sugerencias
+                          child: Text(
+                             'No hay sugerencias por ahora.\n¡Añade videos y tags!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey[600]),
                           ),
-                        );
-                      },
-                    ),
+                        )
+                      : RefreshIndicator( // Permite refrescar deslizando hacia abajo
+                          onRefresh: _generateSuggestions, // Llama a la función async al refrescar
+                          child: ListView.builder(
+                            // Añade physics para asegurar scroll incluso con pocos items en RefreshIndicator
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: _suggestions.length,
+                            itemBuilder: (context, index) {
+                              final suggestion = _suggestions[index];
+                              // Determina icono basado en si es combo
+                              bool isCombo = suggestion.contains('->');
+                              IconData iconData = isCombo ? Icons.link_rounded : Icons.directions_run_rounded;
+
+                              // Cada sugerencia en una Card
+                              return Card(
+                                elevation: 2,
+                                margin: const EdgeInsets.symmetric(vertical: 6.0),
+                                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                child: ListTile(
+                                  leading: Icon(iconData, color: Theme.of(context).colorScheme.primary),
+                                  title: Text(suggestion),
+                                  // onTap: () { /* Acción futura? Ej: Marcar como objetivo */ },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
             ),
+            // ------------------------------------------------
+
             const SizedBox(height: 16),
 
             // Botón para refrescar sugerencias
             ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Generar Nuevas Sugerencias'),
-              onPressed: _generateSuggestions, // Llama a la función para recalcular
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Nuevas Sugerencias'),
+              // Deshabilita el botón si ya está cargando sugerencias
+              onPressed: _isLoadingSuggestions ? null : _generateSuggestions,
               style: ElevatedButton.styleFrom(
                  padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
-             const SizedBox(height: 16),
-            // Podrías añadir un botón aquí para "Empezar a Grabar"
-            // ElevatedButton.icon(
-            //   icon: const Icon(Icons.videocam_outlined),
-            //   label: const Text('Empezar a Grabar'),
-            //   onPressed: () { /* Navegar a pantalla de grabación? */ },
-            //   style: ElevatedButton.styleFrom(
-            //      backgroundColor: Theme.of(context).colorScheme.secondary,
-            //      foregroundColor: Theme.of(context).colorScheme.onSecondary,
-            //      padding: const EdgeInsets.symmetric(vertical: 12),
-            //   ),
-            // ),
+            const SizedBox(height: 16), // Espacio al final
           ],
         ),
       ),

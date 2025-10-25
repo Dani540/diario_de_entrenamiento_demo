@@ -1,91 +1,96 @@
 // lib/src/features/instructor/instructor_service.dart
+import 'dart:io';
 import 'dart:math';
-// No necesitamos importar TrickingMoves aquí si usamos trick_data
-import 'trick_data.dart'; // Importa TrickNode y trickGraph
-// Importa comboSuggestions si lo mantienes separado
-// import 'rules.dart' show comboSuggestions; // O usa el de trick_data.dart
+import 'package:diario_de_entrenamiento_demo/src/features/video_data/models/trick_list.dart';
+import 'package:hive/hive.dart'; // Necesario para acceder a la caja
+import 'package:shared_preferences/shared_preferences.dart'; // Para leer la preferencia
+
+import '../video_data/models/video_entry.dart'; // Importa VideoEntry
+import 'trick_data.dart';
 
 class RuleBasedInstructor {
   final Random _random = Random();
+  final Box<VideoEntry> _videoBox = Hive.box<VideoEntry>('videoEntriesBox'); // Acceso a la caja
 
-  // Método principal usando el grafo
-  List<String> getSuggestions(List<String> userTricks, {int count = 3}) {
+  // Clave para la preferencia de mantener tags archivados
+  static const String _keepArchivedTagsPrefKey = 'keep_archived_tags'; // Nueva clave
+
+  // Método principal usando el grafo y considerando archivados
+  Future<List<String>> getSuggestions({int count = 3}) async { // Ahora es async
     final Set<String> potentialSuggestions = {};
-    final Set<String> knownTricks = userTricks.toSet();
+    final Set<String> knownTricks = {}; // Tags a considerar
 
-    // --- 1. Encontrar la "Frontera" de Aprendizaje (Movimientos Individuales) ---
-    // Itera sobre todos los tricks definidos en el grafo
+    // --- Leer Preferencia y Recolectar Tags ---
+    bool keepArchived = false; // Valor por defecto
+     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || Platform.isAndroid || Platform.isIOS) {
+        try {
+           final prefs = await SharedPreferences.getInstance();
+           keepArchived = prefs.getBool(_keepArchivedTagsPrefKey) ?? false;
+        } catch (e) { /* Error leyendo prefs, usa valor por defecto */ }
+     }
+
+
+    final allEntries = _videoBox.values;
+    for (var entry in allEntries) {
+      // Incluir tags si:
+      // 1. El video NO está archivado
+      // 2. O SI está archivado Y la opción keepArchived está activada
+      if (!entry.isArchived || (entry.isArchived && keepArchived)) {
+        knownTricks.addAll(entry.tags);
+      }
+    }
+    // ------------------------------------------
+
+    // --- 1. Encontrar la "Frontera" de Aprendizaje (igual que antes) ---
     trickGraph.forEach((trickName, trickNode) {
-      // Considera este trick como posible sugerencia si el usuario NO lo conoce
       if (!knownTricks.contains(trickName)) {
-        // Verifica si cumple TODOS los pre-requisitos
-        bool prerequisitesMet = true;
-        if (trickNode.prerequisites.isNotEmpty) {
-          prerequisitesMet = trickNode.prerequisites.every((prereq) => knownTricks.contains(prereq));
-        } else {
-           // Si no hay prerequisitos listados, considera que se cumplen
-           // (Podrías añadir una dificultad mínima aquí si quieres evitar sugerir
-           //  movimientos avanzados sin ningún prerequisito listado)
-           prerequisitesMet = true;
-        }
-
-
-        // Si cumple los pre-requisitos, es un candidato para la frontera
+        bool prerequisitesMet = trickNode.prerequisites.isEmpty ||
+                                trickNode.prerequisites.every((prereq) => knownTricks.contains(prereq));
         if (prerequisitesMet) {
           potentialSuggestions.add(trickName);
         }
       }
     });
 
-    // --- 2. Sugerencias de Combos (Lógica similar a antes) ---
+    // --- 2. Sugerencias de Combos (igual que antes) ---
     for (String knownTrick in knownTricks) {
       if (comboSuggestions.containsKey(knownTrick)) {
         for (List<String> combo in comboSuggestions[knownTrick]!) {
-          // Verifica si sabe el primer movimiento y no todos
           if (knownTricks.contains(combo.first) && !combo.every((move) => knownTricks.contains(move))) {
-            String comboString = combo.join(' -> ');
-            // Evita añadir el combo si ya se sugirió un movimiento final del combo individualmente?
-            // (Ej: Si ya se sugirió 'Cork', no sugerir 'Master Scoot -> Cork'?) - Decisión de diseño
-             potentialSuggestions.add(comboString);
+            potentialSuggestions.add(combo.join(' -> '));
           }
         }
       }
     }
 
-    // --- 3. Filtrado por Dificultad (Opcional pero recomendado) ---
-    // Calcula la dificultad máxima o promedio del usuario
+    // --- 3. Filtrado por Dificultad (igual que antes) ---
     Difficulty maxUserDifficulty = Difficulty.fundamental;
     int maxUserDifficultyIndex = 0;
     if (knownTricks.isNotEmpty) {
         maxUserDifficultyIndex = knownTricks
-            .map((t) => trickGraph[t]?.difficulty.index ?? 0) // Obtiene índice de dificultad de cada trick conocido
-            .reduce(max); // Encuentra el índice máximo
+            .map((t) => trickGraph[t]?.difficulty.index ?? 0)
+            .where((index) => index != 0) // Evita que 0 sea siempre el max si solo hay fundamentals
+            .fold(0, max); // Encuentra el índice máximo (o 0 si está vacío)
         maxUserDifficulty = Difficulty.values[maxUserDifficultyIndex];
     }
-
-    // Filtra las sugerencias para que no sean demasiado difíciles
     potentialSuggestions.removeWhere((suggestion) {
-        // Si es un combo, no lo filtramos por dificultad por ahora (podría calcularse)
         if (suggestion.contains('->')) return false;
-        // Obtiene la dificultad del trick sugerido
         final suggestionDifficultyIndex = trickGraph[suggestion]?.difficulty.index ?? 0;
-        // Elimina si la dificultad sugerida es >1 nivel por encima de la máxima del usuario
-        // (Ej: Si lo máximo es Basic (índice 1), solo sugiere Intermediate (índice 2), no Advanced (índice 3))
+        // Permite sugerir hasta UN nivel por encima
         return suggestionDifficultyIndex > maxUserDifficultyIndex + 1;
     });
 
-
-    // --- 4. Lógica de Fallback ---
+    // --- 4. Lógica de Fallback (igual que antes) ---
     if (potentialSuggestions.isEmpty) {
        if (knownTricks.isNotEmpty) {
-         potentialSuggestions.add("¡Perfecciona tus movimientos actuales!");
-         // Podríamos buscar movimientos de dificultad similar que no estén en la frontera
+         potentialSuggestions.add("¡Intenta enlazar ${knownTricks.first} y ${knownTricks.last}!");
+         potentialSuggestions.add("Perfecciona tu ${knownTricks.last}");
        } else {
-         // Sugerencias iniciales si no sabe nada
          potentialSuggestions.add(trickGraph.values
              .where((node) => node.difficulty == Difficulty.fundamental && node.prerequisites.isEmpty)
              .map((node) => node.name)
-             .firstOrNull ?? "¡Explora los Fundamentos!"); // Sugiere un fundamental sin prerequisitos
+             .firstOrNull ?? "¡Graba tus primeros movimientos!");
+         potentialSuggestions.add(TrickingMoves.tornado);
        }
     }
 
