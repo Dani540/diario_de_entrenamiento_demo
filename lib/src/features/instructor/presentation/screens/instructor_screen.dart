@@ -102,8 +102,8 @@ class _InstructorScreenState extends State<InstructorScreen> {
                                 margin: const EdgeInsets.symmetric(vertical: 6.0),
                                 color: Theme.of(context)
                                     .colorScheme
-                                    .surfaceVariant
-                                    .withOpacity(0.8),
+                                    .surfaceContainerHighest
+                                    .withAlpha((255*0.8).round()),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),

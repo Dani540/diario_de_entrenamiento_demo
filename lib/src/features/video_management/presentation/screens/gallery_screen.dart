@@ -360,7 +360,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
               if (videoProvider.isLoading)
                 Positioned.fill(
                   child: Container(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withAlpha((255*0.6).round()),
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(

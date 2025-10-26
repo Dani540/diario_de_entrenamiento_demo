@@ -74,14 +74,14 @@ class VideoGridItem extends StatelessWidget {
                 right: 4,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
+                    color: Colors.black.withAlpha((255 * 0.4).round()),
                     shape: BoxShape.circle,
                   ),
                   child: Material(
                     color: Colors.transparent,
                     child: IconButton(
                       icon: const Icon(Icons.more_vert, size: 18),
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withAlpha((255 * 0.8).round()),
                       tooltip: 'Opciones',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(

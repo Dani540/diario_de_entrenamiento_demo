@@ -69,6 +69,14 @@ Future<void> initializeDependencies() async {
     ),
   );
 
+  sl.registerLazySingleton<VideoRepositoryImpl>(
+    () => VideoRepositoryImpl(
+      sl<Box<VideoModel>>(),
+      localDataSource: sl(),
+      fileStorage: sl(),
+    ),
+  );
+
   // =========================================================================
   // USE CASES
   // =========================================================================

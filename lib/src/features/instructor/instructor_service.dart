@@ -34,7 +34,6 @@ class RuleBasedInstructor {
     }
 
     // Obtener tags según configuración
-    // Obtener tags
     var videoTags = await _videoRepository.getAllTags(includeArchived: keepArchived);
     // Aplanar la lista de listas en un conjunto único desde Either<Failure, List<String>> a List<String>
     videoTags.fold(
