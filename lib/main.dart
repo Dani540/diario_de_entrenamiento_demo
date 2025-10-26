@@ -2,11 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
 
 import 'src/app.dart';
 import 'src/features/video_management/data/models/video_model.dart';
-import 'src/core/constants.dart';
 import 'src/core/di/injection_container.dart' as di;
 
 void main() async {

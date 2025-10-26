@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 
 // Importa las pantallas principales
-import '../features/video_management/presentation/screens/gallery_screen.dart';
-import '../features/instructor/presentation/screens/instructor_screen.dart';
+import '../gallery_screen.dart';
+import '../../../../instructor/presentation/screens/instructor_screen.dart';
 // Importa futuras pantallas aquí (Perfil, Ajustes)
 // import '../features/profile/screens/profile_screen.dart'; // Ejemplo
-import '../features/settings/screens/settings_screen.dart'; // Necesitamos SettingsScreen ahora
+import '../../../../settings/screens/settings_screen.dart'; // Necesitamos SettingsScreen ahora
 
 // Widget Placeholder Simple para secciones no implementadas
 class PlaceholderScreen extends StatelessWidget {

@@ -1,20 +1,41 @@
+[BUGS A ARREGLAR URGENTE]
+
+* Carga de videos: Al cargar video a la galeria, la aplicacion tira error de "video con ID ... no encontrado", y no añade nada, pero si cambio la pantalla y vuelvo a la de galeria, el video ya está añadido.
+* Eliminar y archivar: Da error al operar estas opciones.
+* La aplicacion se traba bastante, no sé que lo causa.
+* En consola se muestra "All dependencies ready: false" en relación a di.sl.allReadySync(), y "Not yet ready objects:" con la lista de todos los objects registrados en el DI, lo que indica que no se están inicializando bien las dependencias.
+* 
+
+[Correcciones de diseño a integrar].
+
 * Permitir desplazar por pantallas deslizando la pantalla hacia los lados (tactil).
-* Cambiar la dustribucion de la pantalla de "analyzer", el video queda en medio, la velocidad debe poder manejarse con una barra de esas que se le desplaza el centro y debe estar oculta, de modo que se pueda ver presionando el boton flotante de velocidad (boton que se sobrepondrá al video, y que tendrá opacidad baja hasta ser presionado, la barra tambien se esconderá al dejar de desplazar, el video debe poder seguir reproduciendose, la barra y el boton deben estar en la parte baja del video); los tags de movimiento deben poder ir añadiendose a medida que se ve el video (este boton puede estar en la parte lateral del video), por lo que añadiremos otro boton flotante que sea de añadir tag (con un icono de etiqueta) donde, al presionarlo, nos despliegara directamente la barra de seleccion de tags, al añadir un tag, este se mostrará abajo (por encima del video).
+* Cambiar la distribución de la pantalla de "analyzer", el video queda en medio, la velocidad debe poder manejarse con una barra de esas que se le desplaza el centro y debe estar oculta, de modo que se pueda ver presionando el boton flotante de velocidad (boton que se sobrepondrá al video, y que tendrá opacidad baja hasta ser presionado, la barra tambien se esconderá al dejar de desplazar, el video debe poder seguir reproduciendose, la barra y el boton deben estar en la parte baja del video); los tags de movimiento deben poder ir añadiendose a medida que se ve el video (este boton puede estar en la parte lateral del video), por lo que añadiremos otro boton flotante que sea de añadir tag (con un icono de etiqueta) donde, al presionarlo, nos despliegara directamente la barra de seleccion de tags, al añadir un tag, este se mostrará abajo (por encima del video).
 * La lista de tags disponible debe sincronizarse con los tricks en la trick_list.
 * Analizar la performance de memoria, ya que la aplicacion a veces se queda un poco congelada (ms's, pero notables).
 * Quitar el banner superior del nombre de las pantallas.
-* Integrar la vista de la galeria al perfil (fusionar pantallas).
+* Integrar la vista de la galeria al perfil (fusionar pantallas) para comenzar a simular la interfaz "Instagram".
 
-* Integrar perfil de usuario con sus metadatos (alias, foto de perfil, deporte que practica, nivel, etc).
+[Features a integrar]
+
+* Integrar perfil de usuario con sus metadatos (alias, foto de perfil, @username, contadores sociales, biografia, disciplinas, nivel del usuario y xp acumulada (estilo UI de minecraft)).
+
 * Perfil de usuario:
 ** Alias: Nombre elegido por el usuario al momento de registrarse en la app.
 ** Foto de perfil: Foto mostrada elegida tambien por el usuario.
-** Biografia: Descripcion propia del usuario.
-** Deporte que practica: uno o varios de los deportes en la lista de deportes (de momento tricking, parkour y freerunning).
+** @username: El @ único de cada usuario.
+** Contadores sociales: Clips publicados, seguidores y seguidos (a futuro, de momento solo clips, podemos mostrarlos como "-").
+** Biografía: Descripción propia del usuario.
+** Disciplinas: uno o varios de los deportes en la lista de deportes (de momento tricking, parkour y freerunning).
 ** Nivel: nivel del usuario en la plataforma, determinado por su actividad en esta:
 *** Subida y etiquetado de clips: +10 y +10 de xp.
 *** Completar Alias, Biografia y Foto de perfil: +10 de xp.
 *** Completar progresiones del instructor: +10 de xp * nivel del movimiento.
 *** Completar combos del instructor: +5 de xp * (sumatoria del nivel de cada truco) *0.5 o 10 de xp si la formula anterior da >10.
 *** establecer mas cosas mas adelante.
-** Conteo de clips publicados.
+** Xp acumulada: Barra que indica la cantidad de xp acumulada y restante para subir de nivel (ui similar a la del minecraft).
+
+* Integrar pantalla de galería a pantalla de perfil de usuario dejando una unica pantalla de usuario para mostrar tanto los datos de perfil como los clips subidos.
+* Integrar a pantalla de usuario y galería (pantalla de sesión de ahora en adelante) tres puntitos superiores para dar la opción de editar perfil.
+** Para cambiar la foto, el alias, el username, la biografía y las disciplinas.
+* Una vez escritas las disciplinas, estas tendrán directa relación con el algoritmo, por lo que cambiarlas supone modificar su input/output, asi que debemos considerar si dar la opción de cambiar o no las disciplinas, o simplemente dejar que el usuario las setee cuando crea el perfil e indicarle que luego no se podrán cambiar nunca más.
+
