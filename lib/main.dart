@@ -28,12 +28,15 @@ void main() async {
     // 3. IMPORTANTE: Limpiar cajas para evitar conflictos de migración
     // ========================================================================
     // Comentar estas líneas después de la primera ejecución si no hay problemas
-    await Hive.deleteBoxFromDisk(AppConstants.videoEntriesBoxName);
+    // await Hive.deleteBoxFromDisk(AppConstants.videoEntriesBoxName);
 
     // ========================================================================
     // 4. Inicializar dependencias (GetIt)
     // ========================================================================
     await di.initializeDependencies();
+    await di.sl.allReady();
+    var readySync = di.sl.allReadySync();
+    print('All dependencies ready: $readySync');
 
     // ========================================================================
     // 5. Ejecutar la app

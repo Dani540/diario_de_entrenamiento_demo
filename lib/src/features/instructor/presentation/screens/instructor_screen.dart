@@ -1,13 +1,9 @@
 // lib/src/features/instructor/screens/instructor_screen.dart
-import 'package:diario_de_entrenamiento_demo/src/features/video_management/data/datasources/video_local_datasource.dart';
+import 'package:diario_de_entrenamiento_demo/src/core/di/injection_container.dart';
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../../video_management/data/models/video_model.dart';
 import '../../../video_management/data/repositories/video_repository_impl.dart';
-import '../../../video_management/data/datasources/file_storage_datasource.dart';
 import '../../instructor_service.dart';
-import '../../../../core/constants.dart';
 
 class InstructorScreen extends StatefulWidget {
   const InstructorScreen({super.key});
@@ -29,10 +25,7 @@ class _InstructorScreenState extends State<InstructorScreen> {
   }
 
   Future<void> _initializeServices() async {
-    final box = Hive.box<VideoModel>(AppConstants.videoEntriesBoxName);
-    final localDataSource = VideoLocalDataSourceImpl(box);
-    final fileStorage = FileStorageDataSourceImpl();
-    _videoRepository = VideoRepositoryImpl(box, localDataSource: localDataSource, fileStorage: fileStorage);
+    _videoRepository = sl<VideoRepositoryImpl>();
     _instructor = RuleBasedInstructor(_videoRepository);
     await _generateSuggestions();
   }
