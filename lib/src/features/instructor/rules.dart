@@ -1,5 +1,5 @@
 // lib/src/features/instructor/rules.dart
-import '../video_data/models/trick_list.dart';
+import '../tricks/data/models/trick_list.dart';
 
 // --- REGLAS DE PROGRESIÓN (Movimiento Individual) ---
 // Clave: Movimiento conocido.

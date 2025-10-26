@@ -1,16 +1,18 @@
 // lib/src/features/instructor/instructor_service.dart
 import 'dart:io';
 import 'dart:math';
+import 'package:dartz/dartz.dart';
+import 'package:diario_de_entrenamiento_demo/src/core/errors/failures.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../video_data/models/trick_list.dart';
-import '../video_data/repositories/video_repository.dart';
+import '../tricks/data/models/trick_list.dart';
+import '../video_management/data/repositories/video_repository_impl.dart';
 import '../../core/constants.dart';
-import 'trick_data.dart';
+import 'data/models/trick_data.dart';
 
 class RuleBasedInstructor {
   final Random _random = Random();
-  final VideoRepository _videoRepository;
+  final VideoRepositoryImpl _videoRepository;
 
   RuleBasedInstructor(this._videoRepository);
 
@@ -32,7 +34,18 @@ class RuleBasedInstructor {
     }
 
     // Obtener tags según configuración
-    knownTricks.addAll(_videoRepository.getAllTags(includeArchived: keepArchived));
+    // Obtener tags
+    var videoTags = await _videoRepository.getAllTags(includeArchived: keepArchived);
+    // Aplanar la lista de listas en un conjunto único desde Either<Failure, List<String>> a List<String>
+    videoTags.fold(
+      (failure) {
+        // En caso de fallo, continuar con conjunto vacío
+        videoTags = Left(failure);
+      },
+      (tags) {
+        knownTricks.addAll(tags);
+      },
+    );
 
     // --- 1. Encontrar la "Frontera" de Aprendizaje ---
     trickGraph.forEach((trickName, trickNode) {
