@@ -21,13 +21,14 @@ class VideoEntryAdapter extends TypeAdapter<VideoEntry> {
       tags: (fields[1] as List?)?.cast<String>(),
       thumbnailPath: fields[2] as String?,
       displayName: fields[3] as String?,
+      isArchived: fields[4] as bool? ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, VideoEntry obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.videoPath)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class VideoEntryAdapter extends TypeAdapter<VideoEntry> {
       ..writeByte(2)
       ..write(obj.thumbnailPath)
       ..writeByte(3)
-      ..write(obj.displayName);
+      ..write(obj.displayName)
+      ..writeByte(4)
+      ..write(obj.isArchived);
   }
 
   @override
