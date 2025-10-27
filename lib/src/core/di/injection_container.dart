@@ -43,7 +43,7 @@ Future<void> initializeDependencies() async {
   final videoBox = await Hive.openBox<VideoModel>(
     AppConstants.videoEntriesBoxName,
   );
-  sl.registerLazySingleton<Box<VideoModel>>(() => videoBox);
+  sl.registerSingleton<Box<VideoModel>>(videoBox);
 
   // =========================================================================
   // DATA SOURCES

@@ -2,7 +2,6 @@
 import 'package:hive/hive.dart';
 import '../models/video_model.dart';
 
-/// Interfaz para el DataSource local de videos
 abstract class VideoLocalDataSource {
   Future<List<VideoModel>> getAllVideos();
   Future<VideoModel> getVideoById(String id);
@@ -12,7 +11,6 @@ abstract class VideoLocalDataSource {
   Stream<BoxEvent> watchVideos();
 }
 
-/// Implementación del DataSource local usando Hive
 class VideoLocalDataSourceImpl implements VideoLocalDataSource {
   final Box<VideoModel> box;
 
@@ -25,7 +23,16 @@ class VideoLocalDataSourceImpl implements VideoLocalDataSource {
 
   @override
   Future<VideoModel> getVideoById(String id) async {
-    final video = box.get(id);
+    // CRITICO: Manejo dual de IDs (int y string)
+    VideoModel? video;
+    
+    try {
+      final intId = int.parse(id);
+      video = box.get(intId);
+    } catch (e) {
+      video = box.get(id);
+    }
+    
     if (video == null) {
       throw Exception('Video con ID $id no encontrado');
     }
@@ -34,18 +41,38 @@ class VideoLocalDataSourceImpl implements VideoLocalDataSource {
 
   @override
   Future<String> saveVideo(VideoModel video) async {
+    // CRITICO: add() retorna int, convertimos a String
     final key = await box.add(video);
+    
+    // CRITICO: Forzar escritura en disco
+    await box.flush();
+    
+    print('[DATASOURCE] Video guardado con ID: $key');
     return key.toString();
   }
 
   @override
   Future<void> updateVideo(String id, VideoModel video) async {
-    await box.put(id, video);
+    // CRITICO: Manejo dual de IDs
+    try {
+      final intId = int.parse(id);
+      await box.put(intId, video);
+    } catch (e) {
+      await box.put(id, video);
+    }
+    await box.flush();
   }
 
   @override
   Future<void> deleteVideo(String id) async {
-    await box.delete(id);
+    // CRITICO: Manejo dual de IDs
+    try {
+      final intId = int.parse(id);
+      await box.delete(intId);
+    } catch (e) {
+      await box.delete(id);
+    }
+    await box.flush();
   }
 
   @override
@@ -53,5 +80,3 @@ class VideoLocalDataSourceImpl implements VideoLocalDataSource {
     return box.watch();
   }
 }
-
-

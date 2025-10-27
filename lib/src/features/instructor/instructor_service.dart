@@ -29,7 +29,7 @@ class RuleBasedInstructor {
         final prefs = await SharedPreferences.getInstance();
         keepArchived = prefs.getBool(AppConstants.keepArchivedTagsPrefKey) ?? false;
       } catch (e) {
-        // Error leyendo prefs, usa valor por defecto
+        print('[INSTRUCTOR] Error al leer preferencias: $e');
       }
     }
 
