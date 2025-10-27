@@ -1,34 +1,47 @@
 // lib/src/app.dart
 import 'package:flutter/material.dart';
-// import 'features/gallery/screens/gallery_screen.dart'; // Ya no se usa aquí
-import 'screens/main_screen.dart'; // Importa la nueva pantalla principal
+import 'package:provider/provider.dart';
+
+import 'features/video_management/presentation/screens/screens/main_screen.dart';
+import 'features/video_management/presentation/providers/video_provider.dart';
+import 'core/di/injection_container.dart' as di;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Diario de Entrenamiento',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.cyan,
-          brightness: Brightness.dark,
+    return MultiProvider(
+      providers: [
+        // Provider para gestión de videos
+        ChangeNotifierProvider(
+          create: (_) => di.sl<VideoProvider>(),
         ),
-        useMaterial3: true,
-        // Por defecto, cada pantalla puede tener su propio estilo
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.cyan,
-          foregroundColor: Colors.white,
+        // Aquí puedes añadir más providers según necesites
+        // ChangeNotifierProvider(
+        //   create: (_) => di.sl<InstructorProvider>(),
+        // ),
+      ],
+      child: MaterialApp(
+        title: 'Diario de Entrenamiento',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.cyan,
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.cyan,
+            foregroundColor: Colors.white,
+          ),
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
+            backgroundColor: Colors.cyan,
+            foregroundColor: Colors.white,
+          ),
         ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: Colors.cyan,
-          foregroundColor: Colors.white,
-        ),
+        home: const MainScreen(),
+        debugShowCheckedModeBanner: false,
       ),
-      home: const MainScreen(), // Usa MainScreen como pantalla de inicio
-      // --------------------
-      debugShowCheckedModeBanner: false,
     );
   }
 }
