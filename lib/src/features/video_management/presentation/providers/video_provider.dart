@@ -10,7 +10,7 @@ import '../../domain/usecases/add_tag_to_video.dart';
 import '../../domain/usecases/remove_tag_from_video.dart';
 import '../../domain/usecases/get_all_tags.dart';
 
-/// Provider para gestionar el estado de los videos en la UI
+/// Provider optimizado para gestionar el estado de los videos en la UI
 class VideoProvider extends ChangeNotifier {
   final GetActiveVideos getActiveVideos;
   final AddVideo addVideo;
@@ -39,7 +39,7 @@ class VideoProvider extends ChangeNotifier {
   String _loadingMessage = '';
 
   // Getters
-  List<Video> get videos => _videos;
+  List<Video> get videos => List.unmodifiable(_videos); // Retornar lista inmutable
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String get loadingMessage => _loadingMessage;
@@ -91,7 +91,7 @@ class VideoProvider extends ChangeNotifier {
         return false;
       },
       (video) {
-        _videos.add(video);
+        _videos = [..._videos, video]; // Crear nueva lista
         _errorMessage = null;
         notifyListeners();
         return true;
@@ -110,7 +110,7 @@ class VideoProvider extends ChangeNotifier {
         return false;
       },
       (_) {
-        _videos.removeWhere((v) => v.id == videoId);
+        _videos = _videos.where((v) => v.id != videoId).toList(); // Nueva lista
         _errorMessage = null;
         notifyListeners();
         return true;
@@ -136,7 +136,7 @@ class VideoProvider extends ChangeNotifier {
         return false;
       },
       (_) {
-        _videos.removeWhere((v) => v.id == videoId);
+        _videos = _videos.where((v) => v.id != videoId).toList(); // Nueva lista
         _errorMessage = null;
         notifyListeners();
         return true;
@@ -144,7 +144,7 @@ class VideoProvider extends ChangeNotifier {
     );
   }
 
-  /// Renombra un video
+  /// Renombra un video - Optimizado para notificar solo el cambio específico
   Future<bool> renameVideoById(String videoId, String newName) async {
     final result = await renameVideo(videoId, newName);
 
@@ -157,7 +157,12 @@ class VideoProvider extends ChangeNotifier {
       (_) {
         final index = _videos.indexWhere((v) => v.id == videoId);
         if (index != -1) {
-          _videos[index] = _videos[index].copyWith(displayName: newName);
+          final updatedVideo = _videos[index].copyWith(displayName: newName);
+          _videos = [
+            ..._videos.sublist(0, index),
+            updatedVideo,
+            ..._videos.sublist(index + 1),
+          ];
           notifyListeners();
         }
         return true;
@@ -165,7 +170,7 @@ class VideoProvider extends ChangeNotifier {
     );
   }
 
-  /// Añade un tag a un video
+  /// Añade un tag a un video - Optimizado
   Future<bool> addTag(String videoId, String tag) async {
     final result = await addTagToVideo(videoId, tag);
 
@@ -178,7 +183,12 @@ class VideoProvider extends ChangeNotifier {
       (_) {
         final index = _videos.indexWhere((v) => v.id == videoId);
         if (index != -1) {
-          _videos[index] = _videos[index].addTag(tag);
+          final updatedVideo = _videos[index].addTag(tag);
+          _videos = [
+            ..._videos.sublist(0, index),
+            updatedVideo,
+            ..._videos.sublist(index + 1),
+          ];
           notifyListeners();
         }
         return true;
@@ -186,7 +196,7 @@ class VideoProvider extends ChangeNotifier {
     );
   }
 
-  /// Elimina un tag de un video
+  /// Elimina un tag de un video - Optimizado
   Future<bool> removeTag(String videoId, String tag) async {
     final result = await removeTagFromVideo(videoId, tag);
 
@@ -199,7 +209,12 @@ class VideoProvider extends ChangeNotifier {
       (_) {
         final index = _videos.indexWhere((v) => v.id == videoId);
         if (index != -1) {
-          _videos[index] = _videos[index].removeTag(tag);
+          final updatedVideo = _videos[index].removeTag(tag);
+          _videos = [
+            ..._videos.sublist(0, index),
+            updatedVideo,
+            ..._videos.sublist(index + 1),
+          ];
           notifyListeners();
         }
         return true;
@@ -207,7 +222,7 @@ class VideoProvider extends ChangeNotifier {
     );
   }
 
-  /// Obtiene un video por ID
+  /// Obtiene un video por ID - Sin notificaciones
   Video? getVideoById(String videoId) {
     try {
       return _videos.firstWhere((v) => v.id == videoId);

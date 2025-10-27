@@ -24,29 +24,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    setState(() { _isLoading = true; });
+    setState(() {
+      _isLoading = true;
+    });
 
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || 
-        Platform.isAndroid || Platform.isIOS) {
+    if (Platform.isWindows ||
+        Platform.isLinux ||
+        Platform.isMacOS ||
+        Platform.isAndroid ||
+        Platform.isIOS) {
       try {
         final prefs = await SharedPreferences.getInstance();
         setState(() {
           _showFab = prefs.getBool(AppConstants.showFabPrefKey) ?? true;
-          _keepArchivedTags = prefs.getBool(AppConstants.keepArchivedTagsPrefKey) ?? false;
+          _keepArchivedTags =
+              prefs.getBool(AppConstants.keepArchivedTagsPrefKey) ?? false;
         });
       } catch (e) {
         print('Error cargando configuración: $e');
       }
     }
-    
-    setState(() { _isLoading = false; });
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _updateShowFab(bool value) async {
-    setState(() { _showFab = value; });
-    
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || 
-        Platform.isAndroid || Platform.isIOS) {
+    setState(() {
+      _showFab = value;
+    });
+
+    if (Platform.isWindows ||
+        Platform.isLinux ||
+        Platform.isMacOS ||
+        Platform.isAndroid ||
+        Platform.isIOS) {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(AppConstants.showFabPrefKey, value);
@@ -57,10 +70,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _updateKeepArchivedTags(bool value) async {
-    setState(() { _keepArchivedTags = value; });
-    
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || 
-        Platform.isAndroid || Platform.isIOS) {
+    setState(() {
+      _keepArchivedTags = value;
+    });
+
+    if (Platform.isWindows ||
+        Platform.isLinux ||
+        Platform.isMacOS ||
+        Platform.isAndroid ||
+        Platform.isIOS) {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(AppConstants.keepArchivedTagsPrefKey, value);
@@ -73,58 +91,113 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ajustes'),
-        automaticallyImplyLeading: false,
-        centerTitle: true,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header personalizado
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ajustes',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Personaliza tu experiencia',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.grey,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+                  
+                  // Contenido scrollable
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      children: [
+                        const SizedBox(height: 8),
+                        Text(
+                          'Galería',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        SwitchListTile(
+                          title: const Text('Mostrar botón (+) flotante'),
+                          subtitle: const Text(
+                            'Muestra u oculta el botón rápido para añadir videos en la galería.',
+                          ),
+                          value: _showFab,
+                          onChanged: _updateShowFab,
+                          secondary: const Icon(Icons.add_circle_outline),
+                        ),
+                        const Divider(height: 30),
+                        Text(
+                          'Instructor',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        SwitchListTile(
+                          title:
+                              const Text('Considerar tags de videos archivados'),
+                          subtitle: const Text(
+                            'Si está activado, el instructor usará los tags de videos '
+                            'archivados para generar sugerencias.',
+                          ),
+                          value: _keepArchivedTags,
+                          onChanged: _updateKeepArchivedTags,
+                          secondary:
+                              const Icon(Icons.history_toggle_off_outlined),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.info_outline),
+                          title: const Text("Nota sobre archivado"),
+                          subtitle: const Text(
+                            "Archivar un video lo oculta de la galería pero no borra "
+                            "el archivo ni sus datos de Hive, permitiendo que el instructor "
+                            "aún los use si esta opción está activa. Para borrar "
+                            "permanentemente, usa la opción desde el menú del video.",
+                          ),
+                          dense: true,
+                        ),
+                        const Divider(height: 30),
+                        
+                        // Sección adicional: Acerca de
+                        Text(
+                          'Acerca de',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.apps),
+                          title: const Text('Versión'),
+                          subtitle: const Text('0.1.0+1'),
+                          dense: true,
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.sports_martial_arts),
+                          title: const Text('Diario de Entrenamiento'),
+                          subtitle: const Text('App de Tricking, Parkour & Freerun'),
+                          dense: true,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                Text(
-                  'Galería',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                SwitchListTile(
-                  title: const Text('Mostrar botón (+) flotante'),
-                  subtitle: const Text(
-                    'Muestra u oculta el botón rápido para añadir videos en la galería.',
-                  ),
-                  value: _showFab,
-                  onChanged: _updateShowFab,
-                  secondary: const Icon(Icons.add_circle_outline),
-                ),
-                const Divider(height: 30),
-                Text(
-                  'Instructor',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                SwitchListTile(
-                  title: const Text('Considerar tags de videos archivados'),
-                  subtitle: const Text(
-                    'Si está activado, el instructor usará los tags de videos '
-                    'archivados para generar sugerencias.',
-                  ),
-                  value: _keepArchivedTags,
-                  onChanged: _updateKeepArchivedTags,
-                  secondary: const Icon(Icons.history_toggle_off_outlined),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text("Nota sobre archivado"),
-                  subtitle: const Text(
-                    "Archivar un video lo oculta de la galería pero no borra "
-                    "el archivo ni sus datos de Hive, permitiendo que el instructor "
-                    "aún los use si esta opción está activa. Para borrar "
-                    "permanentemente, usa la opción desde el menú del video.",
-                  ),
-                  dense: true,
-                ),
-                const Divider(height: 30),
-              ],
-            ),
     );
   }
 }

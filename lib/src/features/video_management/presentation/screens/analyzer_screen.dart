@@ -22,7 +22,8 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
   late Future<void> _initializeVideoPlayerFuture;
   
   double _currentPlaybackSpeed = 1.0;
-  bool _showControls = true;
+  bool _showSpeedControl = false;
+  bool _showTagSelector = false;
   String? _selectedTrickToAdd;
   List<String> _availableTricks = [];
 
@@ -36,13 +37,14 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
   void _initializeVideo() {
     _controller = VideoPlayerController.file(File(widget.video.videoPath));
     _initializeVideoPlayerFuture = _controller.initialize().then((_) {
-      if (mounted) setState(() {});
-      _controller.setLooping(true);
+      if (mounted) {
+        setState(() {});
+        _controller.setLooping(true);
+        _controller.play();
+      }
     }).catchError((error) {
       print("Error al inicializar video: $error");
-      _handleLoadError(
-        errorMessage: 'Error al cargar el video: ${error.toString()}',
-      );
+      _handleLoadError(errorMessage: 'Error al cargar el video: ${error.toString()}');
     });
 
     _controller.addListener(() {
@@ -68,33 +70,28 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
           .where((trick) => !widget.video.tags.contains(trick))
           .toList();
       _availableTricks.sort();
-      _selectedTrickToAdd = null;
+      _selectedTrickToAdd = _availableTricks.isNotEmpty ? _availableTricks.first : null;
     });
   }
 
-  // --- Funciones para Tags ---
   Future<void> _addSelectedTag() async {
     if (_selectedTrickToAdd == null) return;
 
     final videoProvider = context.read<VideoProvider>();
-    final success = await videoProvider.addTag(
-      widget.video.id,
-      _selectedTrickToAdd!,
-    );
+    final success = await videoProvider.addTag(widget.video.id, _selectedTrickToAdd!);
 
     if (mounted) {
       if (success) {
         _updateAvailableTricks();
+        setState(() {
+          _showTagSelector = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tag añadido')),
+          const SnackBar(content: Text('Tag añadido'), duration: Duration(seconds: 1)),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              videoProvider.errorMessage ?? 'Error al añadir tag',
-            ),
-          ),
+          SnackBar(content: Text(videoProvider.errorMessage ?? 'Error al añadir tag')),
         );
       }
     }
@@ -108,21 +105,12 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
       if (success) {
         _updateAvailableTricks();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tag eliminado')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              videoProvider.errorMessage ?? 'Error al eliminar tag',
-            ),
-          ),
+          const SnackBar(content: Text('Tag eliminado'), duration: Duration(seconds: 1)),
         );
       }
     }
   }
 
-  // --- Funciones para Controles de Video ---
   void _togglePlayPause() {
     if (!_controller.value.isInitialized) return;
     setState(() {
@@ -133,12 +121,11 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
   void _setPlaybackSpeed(double speed) {
     if (_controller.value.isInitialized) {
       _controller.setPlaybackSpeed(speed);
-      setState(() => _currentPlaybackSpeed = speed);
+      setState(() {
+        _currentPlaybackSpeed = speed;
+        _showSpeedControl = false;
+      });
     }
-  }
-
-  void _toggleControlsVisibility() {
-    setState(() => _showControls = !_showControls);
   }
 
   @override
@@ -149,304 +136,253 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<VideoProvider>(
-      builder: (context, videoProvider, child) {
-        // Obtener la versión actualizada del video
-        final currentVideo = videoProvider.getVideoById(widget.video.id) ?? 
-            widget.video;
-        
-        final videoFileName = currentVideo.displayName ?? 
-            currentVideo.videoPath.split('/').last;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Consumer<VideoProvider>(
+        builder: (context, videoProvider, child) {
+          final currentVideo = videoProvider.getVideoById(widget.video.id) ?? widget.video;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              videoFileName,
-              style: const TextStyle(fontSize: 16),
-            ),
-            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          ),
-          body: Column(
-            children: [
-              // --- Zona del Video Player ---
-              Flexible(
-                fit: FlexFit.loose,
-                child: GestureDetector(
-                  onTap: _toggleControlsVisibility,
+          return SafeArea(
+            child: Stack(
+              children: [
+                // VIDEO CENTRADO
+                Center(
                   child: FutureBuilder(
                     future: _initializeVideoPlayerFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.done &&
                           _controller.value.isInitialized) {
-                        return ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: MediaQuery.of(context).size.height * 0.6,
-                          ),
-                          child: AspectRatio(
-                            aspectRatio: _controller.value.aspectRatio,
-                            child: Stack(
-                              alignment: Alignment.bottomCenter,
-                              children: <Widget>[
-                                VideoPlayer(_controller),
-                                AnimatedOpacity(
-                                  opacity: _showControls ? 1.0 : 0.0,
-                                  duration: const Duration(milliseconds: 300),
-                                  child: _buildControlsOverlay(),
-                                ),
-                              ],
-                            ),
-                          ),
+                        return AspectRatio(
+                          aspectRatio: _controller.value.aspectRatio,
+                          child: VideoPlayer(_controller),
                         );
                       } else if (snapshot.hasError) {
-                        return AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: Container(
-                            color: Colors.black,
-                            child: const Center(
-                              child: Text(
-                                'Error al cargar video',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ),
+                        return const Center(
+                          child: Icon(Icons.error_outline, color: Colors.red, size: 64),
                         );
                       } else {
-                        return const AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: Center(child: CircularProgressIndicator()),
-                        );
+                        return const Center(child: CircularProgressIndicator());
                       }
                     },
                   ),
                 ),
-              ),
 
-              // --- Zona de Contenido Scrollable ---
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- Controles de Velocidad ---
-                      Text(
-                        'Velocidad:',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 8.0,
-                        runSpacing: 0.0,
-                        children: [0.25, 0.5, 1.0, 1.5, 2.0]
-                            .map((speed) => _buildSpeedButton(speed))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 20),
+                // BOTÓN CERRAR (Top Left)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
 
-                      // --- Sección de Tags ---
-                      Text(
-                        'Etiquetas (Movimientos):',
-                        style: Theme.of(context).textTheme.titleSmall,
+                // BOTÓN AÑADIR TAG (Top Right)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: AnimatedOpacity(
+                    opacity: _showTagSelector ? 1.0 : 0.6,
+                    duration: const Duration(milliseconds: 200),
+                    child: IconButton(
+                      icon: Icon(
+                        _showTagSelector ? Icons.label : Icons.label_outline,
+                        color: Colors.white,
+                        size: 28,
                       ),
-                      const SizedBox(height: 8),
+                      onPressed: () {
+                        setState(() {
+                          _showTagSelector = !_showTagSelector;
+                        });
+                      },
+                    ),
+                  ),
+                ),
 
-                      // Dropdown y Botón para añadir tags
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonHideUnderline(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 0,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest
-                                      .withAlpha((255 * 0.5).round()),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: DropdownButton<String>(
-                                  value: _selectedTrickToAdd,
-                                  isExpanded: true,
-                                  hint: const Text('Selecciona un movimiento...'),
-                                  items: _availableTricks
-                                      .map<DropdownMenuItem<String>>(
-                                    (String value) {
-                                      return DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(
-                                          value,
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                      );
-                                    },
-                                  ).toList(),
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _selectedTrickToAdd = newValue;
-                                    });
-                                  },
-                                  dropdownColor: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                                  icon: Icon(
-                                    Icons.arrow_drop_down,
-                                    color: Theme.of(context).iconTheme.color,
-                                  ),
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ),
-                            ),
+                // SELECTOR DE TAGS (Slide desde arriba)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                  top: _showTagSelector ? 60 : -200,
+                  right: 16,
+                  child: Container(
+                    width: 240,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Añadir movimiento',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedTrickToAdd,
+                            isExpanded: true,
+                            dropdownColor: Colors.grey[900],
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            items: _availableTricks.map((trick) {
+                              return DropdownMenuItem(value: trick, child: Text(trick));
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedTrickToAdd = value;
+                              });
+                            },
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle),
-                            color: Theme.of(context).colorScheme.primary,
-                            tooltip: 'Añadir Tag Seleccionado',
-                            onPressed: _selectedTrickToAdd != null
-                                ? _addSelectedTag
-                                : null,
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: _addSelectedTag,
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Añadir', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // TAGS SOBRE EL VIDEO (Bottom, encima de controles)
+                if (currentVideo.tags.isNotEmpty)
+                  Positioned(
+                    bottom: 100,
+                    left: 16,
+                    right: 16,
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: currentVideo.tags.map((tag) {
+                        return Chip(
+                          label: Text(tag, style: const TextStyle(fontSize: 11)),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: () => _removeTag(tag),
+                          backgroundColor: Colors.black.withOpacity(0.6),
+                          labelStyle: const TextStyle(color: Colors.white),
+                          deleteIconColor: Colors.white70,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                // CONTROLES DE VIDEO (Bottom)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.8),
+                          Colors.transparent,
                         ],
                       ),
-                      const SizedBox(height: 12),
-
-                      // Mostrar los tags ya añadidos
-                      Text(
-                        'Tags añadidos:',
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                      const SizedBox(height: 4),
-                      currentVideo.tags.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text(
-                                'Ningún tag añadido a este video.',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontStyle: FontStyle.italic,
-                                ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Progress Bar
+                        VideoProgressIndicator(
+                          _controller,
+                          allowScrubbing: true,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          colors: VideoProgressColors(
+                            playedColor: Theme.of(context).colorScheme.primary,
+                            bufferedColor: Colors.white30,
+                            backgroundColor: Colors.white10,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Controls Row
+                        Row(
+                          children: [
+                            // Play/Pause
+                            IconButton(
+                              icon: Icon(
+                                _controller.value.isPlaying
+                                    ? Icons.pause_circle_filled
+                                    : Icons.play_circle_filled,
+                                color: Colors.white,
+                                size: 36,
                               ),
-                            )
-                          : Wrap(
-                              spacing: 6.0,
-                              runSpacing: 4.0,
-                              children: currentVideo.tags
-                                  .map(
-                                    (tag) => Chip(
-                                      label: Text(tag),
-                                      labelStyle: const TextStyle(fontSize: 12),
-                                      onDeleted: () => _removeTag(tag),
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 0,
-                                      ),
-                                      deleteIconColor: Colors.redAccent
-                                          .withAlpha((255 * 0.7).round()),
-                                      deleteIcon:
-                                          const Icon(Icons.close, size: 14),
-                                    ),
-                                  )
-                                  .toList(),
+                              onPressed: _togglePlayPause,
                             ),
-
-                      const SizedBox(height: 30),
-                    ],
+                            const SizedBox(width: 8),
+                            
+                            // Time
+                            ValueListenableBuilder(
+                              valueListenable: _controller,
+                              builder: (context, VideoPlayerValue value, child) {
+                                return Text(
+                                  '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                );
+                              },
+                            ),
+                            
+                            const Spacer(),
+                            
+                            // Speed Button
+                            AnimatedOpacity(
+                              opacity: _showSpeedControl ? 1.0 : 0.5,
+                              duration: const Duration(milliseconds: 200),
+                              child: IconButton(
+                                icon: Text(
+                                  '${_currentPlaybackSpeed}x',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _showSpeedControl = !_showSpeedControl;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        // Speed Slider (aparece/desaparece)
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          child: _showSpeedControl
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: _SpeedSlider(
+                                    currentSpeed: _currentPlaybackSpeed,
+                                    onSpeedChanged: _setPlaybackSpeed,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSpeedButton(double speed) {
-    bool isActive = _currentPlaybackSpeed == speed;
-    return ChoiceChip(
-      label: Text('${speed}x'),
-      labelStyle: TextStyle(
-        fontSize: 12,
-        color: isActive ? Theme.of(context).colorScheme.onPrimary : null,
-      ),
-      selected: isActive,
-      onSelected: (_) => _setPlaybackSpeed(speed),
-      selectedColor: Theme.of(context).colorScheme.primary,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-  }
-
-  Widget _buildControlsOverlay() {
-    if (!_controller.value.isInitialized) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            Colors.black.withAlpha((255 * 0.8).round())
-          ],
-          stops: const [0.0, 1.0],
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          VideoProgressIndicator(
-            _controller,
-            allowScrubbing: true,
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
-            colors: VideoProgressColors(
-              playedColor: Theme.of(context).colorScheme.primary,
-              bufferedColor: Colors.white.withAlpha((255 * 0.3).round()),
-              backgroundColor: Colors.white.withAlpha((255 * 0.1).round()),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    _controller.value.isPlaying
-                        ? Icons.pause_circle_outline
-                        : Icons.play_circle_outline,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: _togglePlayPause,
-                ),
-                const SizedBox(width: 12),
-                ValueListenableBuilder(
-                  valueListenable: _controller,
-                  builder: (context, VideoPlayerValue value, child) {
-                    return Text(
-                      '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        shadows: [Shadow(blurRadius: 1)],
-                      ),
-                    );
-                  },
-                ),
-                const Spacer(),
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -457,5 +393,66 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+}
+
+// Widget personalizado para el slider de velocidad
+class _SpeedSlider extends StatefulWidget {
+  final double currentSpeed;
+  final Function(double) onSpeedChanged;
+
+  const _SpeedSlider({
+    required this.currentSpeed,
+    required this.onSpeedChanged,
+  });
+
+  @override
+  State<_SpeedSlider> createState() => _SpeedSliderState();
+}
+
+class _SpeedSliderState extends State<_SpeedSlider> {
+  late double _tempSpeed;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSpeed = widget.currentSpeed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            const Text('0.25x', style: TextStyle(color: Colors.white60, fontSize: 11)),
+            Expanded(
+              child: Slider(
+                value: _tempSpeed,
+                min: 0.25,
+                max: 2.0,
+                divisions: 7,
+                label: '${_tempSpeed}x',
+                activeColor: Theme.of(context).colorScheme.primary,
+                inactiveColor: Colors.white30,
+                onChanged: (value) {
+                  setState(() {
+                    _tempSpeed = value;
+                  });
+                },
+                onChangeEnd: (value) {
+                  widget.onSpeedChanged(value);
+                },
+              ),
+            ),
+            const Text('2.0x', style: TextStyle(color: Colors.white60, fontSize: 11)),
+          ],
+        ),
+        Text(
+          'Desliza para ajustar',
+          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+        ),
+      ],
+    );
   }
 }

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'features/video_management/presentation/screens/screens/main_screen.dart';
+import 'features/video_management/presentation/screens/main_screen.dart';
 import 'features/video_management/presentation/providers/video_provider.dart';
 import 'core/di/injection_container.dart' as di;
 

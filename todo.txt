@@ -1,16 +1,10 @@
 [BUGS A ARREGLAR URGENTE]
 
-* Carga de videos: Al cargar video a la galeria, la aplicacion tira error de "video con ID ... no encontrado", y no añade nada, pero si cambio la pantalla y vuelvo a la de galeria, el video ya está añadido.
-* Eliminar y archivar: Da error al operar estas opciones.
 * La aplicacion se traba bastante, no sé que lo causa.
-* En consola se muestra "All dependencies ready: false" en relación a di.sl.allReadySync(), y "Not yet ready objects:" con la lista de todos los objects registrados en el DI, lo que indica que no se están inicializando bien las dependencias.
-* 
 
 [Correcciones de diseño a integrar].
 
-* Permitir desplazar por pantallas deslizando la pantalla hacia los lados (tactil).
 * Cambiar la distribución de la pantalla de "analyzer", el video queda en medio, la velocidad debe poder manejarse con una barra de esas que se le desplaza el centro y debe estar oculta, de modo que se pueda ver presionando el boton flotante de velocidad (boton que se sobrepondrá al video, y que tendrá opacidad baja hasta ser presionado, la barra tambien se esconderá al dejar de desplazar, el video debe poder seguir reproduciendose, la barra y el boton deben estar en la parte baja del video); los tags de movimiento deben poder ir añadiendose a medida que se ve el video (este boton puede estar en la parte lateral del video), por lo que añadiremos otro boton flotante que sea de añadir tag (con un icono de etiqueta) donde, al presionarlo, nos despliegara directamente la barra de seleccion de tags, al añadir un tag, este se mostrará abajo (por encima del video).
-* La lista de tags disponible debe sincronizarse con los tricks en la trick_list.
 * Analizar la performance de memoria, ya que la aplicacion a veces se queda un poco congelada (ms's, pero notables).
 * Quitar el banner superior del nombre de las pantallas.
 * Integrar la vista de la galeria al perfil (fusionar pantallas) para comenzar a simular la interfaz "Instagram".
